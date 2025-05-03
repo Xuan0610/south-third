@@ -5,8 +5,8 @@ const db = require('./db')
 const web = require('./web')
 const secret = require('./secret')
 
-if (result.error) {
-  throw result.error
+if (result.error && process.env.NODE_ENV !== 'production') {
+  throw result.error;  // for local 
 }
 const config = {
   db,
@@ -24,7 +24,7 @@ class ConfigManager {
    * @throws Will throw an error if the configuration path is not found.
    */
 
-  static get (path) {
+  static get(path) {
     if (!path || typeof path !== 'string') {
       throw new Error(`incorrect path: ${path}`)
     }
