@@ -80,7 +80,7 @@ const usersController = {
     async postLogin(req, res, next) {
         try {
             const { email, password } = req.body
-            if (isUndefined(email) || isNotValidSting(email) || isUndefined(password) || isNotValidSting(password)) {
+            if (isUndefined(email) || isNotValidString(email) || isUndefined(password) || isNotValidString(password)) {
                 logger.warn('欄位未填寫正確')
                 res.status(400).json({
                     message: '欄位未填寫正確'
