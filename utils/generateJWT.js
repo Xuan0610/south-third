@@ -1,4 +1,4 @@
-const jwt = require('jsonwebtoken')
+const jwt = require('jsonwebtoken');
 
 /**
  * create JSON Web Token
@@ -10,9 +10,9 @@ const jwt = require('jsonwebtoken')
 module.exports = (payload, secret, option = {}) => new Promise((resolve, reject) => {
   jwt.sign(payload, secret, option, (err, token) => {
     if (err) {
-      reject(err)
-      return
+      reject(err);
+      return;
     }
-    resolve(token)
-  })
-})
+    resolve(token);
+  });
+});

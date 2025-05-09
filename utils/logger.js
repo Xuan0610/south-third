@@ -1,5 +1,5 @@
-const pino = require('pino')
-const pretty = require('pino-pretty')
+const pino = require('pino');
+const pretty = require('pino-pretty');
 
 module.exports = function getLogger (prefix, logLevel = 'debug') {
   return pino(pretty({
@@ -7,5 +7,5 @@ module.exports = function getLogger (prefix, logLevel = 'debug') {
     messageFormat: `[${prefix}]: {msg}`,
     colorize: true,
     sync: true
-  }))
-}
+  }));
+};

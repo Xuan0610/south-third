@@ -1,8 +1,8 @@
-const { DataSource, Or } = require('typeorm')
-const config = require('../config/index')
+const { DataSource, Or } = require('typeorm');
+const config = require('../config/index');
 
-const User = require('../entities/User')
-const Product = require('../entities/Product')
+const User = require('../entities/User');
+const Product = require('../entities/Product');
 
 
 const dataSource = new DataSource({
@@ -19,6 +19,6 @@ const dataSource = new DataSource({
     Product,
   ],
   ssl: config.get('db.ssl')
-})
+});
 
-module.exports = { dataSource }
+module.exports = { dataSource };
