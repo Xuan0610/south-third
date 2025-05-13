@@ -38,7 +38,7 @@ module.exports = new EntitySchema({
     },
     forget_token: {
       type: 'varchar',
-      length: 20,
+      length: 64,
       nullable: true,
     },
     forget_token_is_used: {
@@ -46,11 +46,7 @@ module.exports = new EntitySchema({
       nullable: true,
     },
     forget_token_expire: {
-      type: 'timestamp',
-      nullable: true,
-    },
-    temp_token_is_use: {
-      type: 'boolean',
+      type: 'timestamptz',
       nullable: true,
     },
     name: {
@@ -90,12 +86,12 @@ module.exports = new EntitySchema({
       nullable: true,
     },
     created_at: {
-      type: 'timestamp',
+      type: 'timestamptz',
       createDate: true,
       nullable: false,
     },
     updated_at: {
-      type: 'timestamp',
+      type: 'timestamptz',
       updateDate: true,
       nullable: false,
     },

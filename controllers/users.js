@@ -6,6 +6,9 @@ const { dataSource } = require('../db/data-source');
 const logger = require('../utils/logger')('UsersController');
 const { isNotValidInteger, isNotValidString, isUndefined, isNotValidPassword, isNotValidName, isNotValidEmail, isNotValidGender, isNotValidBirthday, isNotValidTaiwanMobile, isNotValidTaiwanAddressAdvanced } = require('../utils/validUtils');
 const generateJWT = require('../utils/generateJWT');
+const { sendResetEmail } = require('../utils/mailer');
+const { nanoid } = require('nanoid');
+const crypto = require('crypto');
 
 
 const usersController = {
@@ -254,7 +257,46 @@ const usersController = {
       logger.error('取得使用者資料錯誤:', error);
       next(error);
     }
-  }
+  },
+
+  async postForget(req, res, next) {
+    try {
+      const { email } = req.body;
+      if (isUndefined(email) || isNotValidEmail(email)) {
+        res.status(400).json({
+          message: '信箱格式錯誤',
+        });
+        return;
+      }
+      const userRepository = dataSource.getRepository('User');
+      const existingUser = await userRepository.findOne({
+        where: { email },
+      });
+
+      res.status(202).json({
+        message: '寄送成功',
+      });
+
+      if (!existingUser) {
+        logger.warn(`信箱不存在，${req.ip}`);
+        return; // 帳號不存在就會停止在這邊
+      }
+      // google、token、nodemailer
+      const token = nanoid(20);
+      sendResetEmail(email, token);
+      const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+      const forgetTokenExpire = new Date(Date.now() + 30 * 60 * 1000);  // set 30 min expire
+      await userRepository.update({ email }, {
+        forget_token: tokenHash,
+        forget_token_expire: forgetTokenExpire,
+        forget_token_is_used: 0,
+      });
+
+    } catch (error) {
+      logger.error('使用者忘記密碼錯誤:', error);
+      next(error);
+    }
+  },
 };
 
 module.exports = usersController;

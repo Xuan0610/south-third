@@ -11,7 +11,7 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-const FRONT_URL = process.env.FRONT_URL || 'http://127.0.0.1';
+const FRONT_URL = process.env.FRONT_URL;
 
 async function sendResetEmail(to, token) {
   const resetLink = `${FRONT_URL}/reset-password?token=${token}`;
