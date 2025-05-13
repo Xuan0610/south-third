@@ -22,10 +22,10 @@ app.use(pinoHttp({
 }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.get('/healthcheck', (req, res) => {
-  res.status(200);
-  res.send('OK');
-});
+// app.get('/healthcheck', (req, res) => {
+//   res.status(200);
+//   res.send('OK');
+// });
 app.use('/api/v1/users', usersRouter);
 
 
