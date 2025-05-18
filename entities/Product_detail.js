@@ -15,10 +15,8 @@ module.exports = new EntitySchema({
       nullable: false
     },
     description: {
-      type: {
-        type: 'text',
-        nullable: false,
-      }
+      type: 'text',
+      nullable: false,
     },
     feature: {
       type: 'varchar',
