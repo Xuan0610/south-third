@@ -3,6 +3,16 @@ const config = require('../config/index');
 
 const User = require('../entities/User');
 const Product = require('../entities/Product');
+const Order = require('../entities/Order');
+const Product_detail = require('../entities/Product_detail');
+const Order_link_product = require('../entities/Order_link_product');
+const Cart = require('../entities/Cart');
+const Cart_link_product = require('../entities/Cart_link_product');
+const Discount_method = require('../entities/Discount_method');
+const Payment_method = require('../entities/Payment_method');
+const Classification = require('../entities/Classification');
+const Receiver = require('../entities/Receiver');
+
 
 
 const dataSource = new DataSource({
@@ -17,6 +27,15 @@ const dataSource = new DataSource({
   entities: [
     User,
     Product,
+    Order,
+    Product_detail,
+    Order_link_product,
+    Cart,
+    Cart_link_product,
+    Discount_method,
+    Payment_method,
+    Classification,
+    Receiver
   ],
   ssl: config.get('db.ssl')
 });

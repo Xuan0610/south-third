@@ -96,4 +96,15 @@ module.exports = new EntitySchema({
       nullable: false,
     },
   },
+  relations: {
+    Receiver: {
+      type: 'one-to-one',
+      target: 'Receiver',
+      joinColumn: {
+        name: 'receiver_id',
+        referencedColumnName: 'id',
+        foreignKeyConstraintName: 'user_receiver_id_fk',
+      }
+    }
+  }
 });
