@@ -6,6 +6,10 @@ const { dataSource } = require('../db/data-source');
 const logger = require('../utils/logger')('UsersController');
 const { isNotValidInteger, isNotValidString, isUndefined, isNotValidPassword, isNotValidName, isNotValidEmail, isNotValidGender, isNotValidBirthday, isNotValidTaiwanMobile, isNotValidTaiwanAddressAdvanced } = require('../utils/validUtils');
 const generateJWT = require('../utils/generateJWT');
+const { sendResetEmail } = require('../utils/mailer');
+const { nanoid } = require('nanoid');
+const crypto = require('crypto');
+const { password } = require('../config/db');
 
 
 const usersController = {
@@ -129,7 +133,6 @@ const usersController = {
       });
 
       res.status(201).json({
-        status: 'success',
         data: {
           token,
           user: {
@@ -152,7 +155,7 @@ const usersController = {
         where: { id }
       });
       res.status(200).json({
-        status: 'success',
+        message: '登入成功',
         data: {
           user
         }
@@ -233,7 +236,6 @@ const usersController = {
       });
       if (updatedResult.affected === 0) {
         res.status(400).json({
-          status: 'failed',
           message: '更新使用者資料失敗'
         });
         return;
@@ -245,7 +247,6 @@ const usersController = {
         }
       });
       res.status(200).json({
-        status: 'success',
         data: {
           user: result
         }
@@ -254,7 +255,110 @@ const usersController = {
       logger.error('取得使用者資料錯誤:', error);
       next(error);
     }
-  }
+  },
+
+  async patchForget(req, res, next) {
+    try {
+      const { email } = req.body;
+      if (isUndefined(email) || isNotValidEmail(email)) {
+        res.status(400).json({
+          message: '信箱格式錯誤',
+        });
+        return;
+      }
+      const userRepository = dataSource.getRepository('User');
+      const existingUser = await userRepository.findOne({
+        where: { email },
+      });
+
+      res.status(202).json({
+        message: '寄送成功',
+      });
+
+      if (!existingUser) {
+        logger.warn(`信箱不存在，${req.ip}`);
+        return; // 帳號不存在就會停止在這邊
+      }
+      // google、token、nodemailer
+      const token = nanoid(20);
+      sendResetEmail(email, token);
+      const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+      const forgetTokenExpire = new Date(Date.now() + 30 * 60 * 1000);  // set 30 min expire
+      await userRepository.update({ email }, {
+        forget_token: tokenHash,
+        forget_token_expire: forgetTokenExpire,
+        forget_token_is_used: 0,
+      });
+
+    } catch (error) {
+      logger.error('使用者忘記密碼錯誤:', error);
+      next(error);
+    }
+  },
+
+  async patchResetPassword(req, res, next) {
+    try {
+      const { password, password2 } = req.body;
+      const { token } = req.query;
+      if (isUndefined(token) || isUndefined(password) || isUndefined(password2)) {
+        res.status(400).json({
+          message: '欄位未填寫正確',
+        });
+        return;
+      }
+      const checkToken = crypto.createHash('sha256').update(token).digest('hex');
+      const userRepository = dataSource.getRepository('USER');
+      const findUser = await userRepository.findOne({
+        select: ['id', 'name', 'password', 'role', 'forget_token_is_used', 'forget_token_expire', 'forget_token'],
+        where: { forget_token: checkToken }
+      });
+      if (!findUser || findUser.forget_token_is_used === 1 || new Date() > new Date(findUser.forget_token_expire)) {
+        res.status(401).json({
+          message: 'Token錯誤或已過期',
+        });
+        return;
+      }
+      if (password !== password2) {
+        res.status(400).json({
+          message: '兩次密碼不相符',
+        });
+        return;
+      }
+      if (isNotValidPassword(password)) {
+        res.status(400).json({
+          message: '密碼不符合規則，需要包含英文數字大小寫，最短8個字，最長16個字',
+        });
+        return;
+      }
+      const isMatch = await bcrypt.compare(password, findUser.password);
+      if (isMatch) {
+        res.status(400).json({
+          message: '密碼歷程記錄不符'
+        });
+        return;
+      }
+      const salt = await bcrypt.genSalt(10);
+      const newHashPassword = await bcrypt.hash(password, salt);
+      const existUser = await userRepository.update({
+        forget_token: checkToken
+      }, {
+        password: newHashPassword,
+        forget_token_is_used: 1
+      });
+      if (existUser.affected === 0) {
+        res.status(400).json({
+          message: '使用者資料未更新',
+        });
+        return;
+      }
+      res.status(200).json({
+        message: '密碼更新成功'
+      });
+    } catch (error) {
+      logger.warn('使用者重設密碼錯誤:', error);
+      next(error);
+    }
+  },
 };
 
 module.exports = usersController;
