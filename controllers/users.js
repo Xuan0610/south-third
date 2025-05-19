@@ -298,9 +298,9 @@ const usersController = {
 
   async patchResetPassword(req, res, next) {
     try {
-      const { password, password2 } = req.body;
+      const { newPassword, newPasswordCheck } = req.body;
       const { token } = req.query;
-      if (isUndefined(token) || isUndefined(password) || isUndefined(password2)) {
+      if (isUndefined(token) || isUndefined(newPassword) || isUndefined(newPasswordCheck)) {
         res.status(400).json({
           message: '欄位未填寫正確',
         });
@@ -318,19 +318,19 @@ const usersController = {
         });
         return;
       }
-      if (password !== password2) {
+      if (newPassword !== newPasswordCheck) {
         res.status(400).json({
           message: '兩次密碼不相符',
         });
         return;
       }
-      if (isNotValidPassword(password)) {
+      if (isNotValidPassword(newPassword)) {
         res.status(400).json({
           message: '密碼不符合規則，需要包含英文數字大小寫，最短8個字，最長16個字',
         });
         return;
       }
-      const isMatch = await bcrypt.compare(password, findUser.password);
+      const isMatch = await bcrypt.compare(newPassword, findUser.password);
       if (isMatch) {
         res.status(400).json({
           message: '密碼歷程記錄不符'
@@ -338,7 +338,7 @@ const usersController = {
         return;
       }
       const salt = await bcrypt.genSalt(10);
-      const newHashPassword = await bcrypt.hash(password, salt);
+      const newHashPassword = await bcrypt.hash(newPassword, salt);
       const existUser = await userRepository.update({
         forget_token: checkToken
       }, {
