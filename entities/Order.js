@@ -13,7 +13,8 @@ module.exports = new EntitySchema({
     display_id: {
       type: 'varchar',
       length: 14,
-      nullable: false
+      nullable: false,
+      unique: true,
     },
     user_id: {
       type: 'uuid',
