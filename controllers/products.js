@@ -41,6 +41,12 @@ const productsController = {
           });
           return;
         }
+        
+        queryOptions.where = {
+          Product_detail: {
+            classification_id: classification,
+          }
+        };
       }
 
       const productRepo = dataSource.getRepository('Product');
