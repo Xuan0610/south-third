@@ -43,7 +43,7 @@ module.exports = new EntitySchema({
       }
     },
     User: {
-      type: 'many-to-one',
+      type: 'one-to-one',
       target: 'User',
       joinColumn: {
         name: 'user_id',
