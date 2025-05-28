@@ -37,6 +37,10 @@ module.exports = new EntitySchema({
     discount_id: {
       type: 'smallint',
     },
+    shipping_fee: {
+      type: 'integer',
+      nullable: false
+    },
     total_price: {
       type: 'integer',
       nullable: false
