@@ -19,6 +19,11 @@ module.exports = new EntitySchema({
       length: 10,
       nullable: false
     },
+    post_code: {
+      type: 'varchar',
+      length: 6,
+      nullable: false
+    },
     address: {
       type: 'varchar',
       length: 320,
