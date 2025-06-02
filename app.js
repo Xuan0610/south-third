@@ -6,7 +6,7 @@ const pinoHttp = require('pino-http');
 const logger = require('./utils/logger')('App');
 const usersRouter = require('./routes/users');
 const productsRouter = require('./routes/products');
-
+const adminRouter = require('./routes/admin');
 
 const app = express();
 app.use(cors());
@@ -29,6 +29,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 // });
 app.use('/api/v1/users', usersRouter);
 app.use('/api/v1/products', productsRouter);
+app.use('/api/v1/admin', adminRouter);
 
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {

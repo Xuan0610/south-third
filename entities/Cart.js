@@ -12,6 +12,7 @@ module.exports = new EntitySchema({
     user_id: {
       type: 'uuid',
       nullable: false,
+      unique: true,
     },
     discount_id: {
       type: 'smallint',
