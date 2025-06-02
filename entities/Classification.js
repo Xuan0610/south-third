@@ -6,8 +6,8 @@ module.exports = new EntitySchema({
   columns: {
     id: {
       primary: true,
-      type: 'varchar',
-      length: 15
+      type: 'smallint',
+      generated: 'increment'
     },
     name: {
       type: 'varchar',

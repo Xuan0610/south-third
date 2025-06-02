@@ -1,4 +1,4 @@
-const FORBIDDEN_MESSAGE = '使用者尚未登入';
+const FORBIDDEN_MESSAGE = '請先以管理者帳號登入';
 const PERMISSION_DENIED_STATUS_CODE = 401;
 
 function generateError(status = PERMISSION_DENIED_STATUS_CODE, message = FORBIDDEN_MESSAGE) {
