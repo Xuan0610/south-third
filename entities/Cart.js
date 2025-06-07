@@ -12,6 +12,7 @@ module.exports = new EntitySchema({
     user_id: {
       type: 'uuid',
       nullable: false,
+      unique: true,
     },
     discount_id: {
       type: 'smallint',
@@ -43,7 +44,7 @@ module.exports = new EntitySchema({
       }
     },
     User: {
-      type: 'many-to-one',
+      type: 'one-to-one',
       target: 'User',
       joinColumn: {
         name: 'user_id',

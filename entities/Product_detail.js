@@ -54,8 +54,7 @@ module.exports = new EntitySchema({
       nullable: true,
     },
     classification_id: {
-      type: 'varchar',
-      length: 15,
+      type: 'smallint',
       nullable: false,
     },
     created_at: {

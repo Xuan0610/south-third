@@ -13,7 +13,8 @@ module.exports = new EntitySchema({
     display_id: {
       type: 'varchar',
       length: 14,
-      nullable: false
+      nullable: false,
+      unique: true,
     },
     user_id: {
       type: 'uuid',
@@ -35,6 +36,10 @@ module.exports = new EntitySchema({
     },
     discount_id: {
       type: 'smallint',
+    },
+    shipping_fee: {
+      type: 'integer',
+      nullable: false
     },
     total_price: {
       type: 'integer',
