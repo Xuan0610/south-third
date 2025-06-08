@@ -1,6 +1,7 @@
 const { dataSource } = require('../db/data-source');
 const logger = require('../utils/logger')('ProductsController');
 const Classification = require('../entities/Classification');
+const { Between, Not, In } = require('typeorm');
 
 const { isNotValidInteger, isNotValidString } = require('../utils/validUtils');
 
@@ -128,6 +129,94 @@ const productsController = {
       res.status(200).json({
         message: '成功',
         data: result,
+      });
+    } catch (error) {
+      logger.error('伺服器錯誤', error);
+      next(error);
+    }
+  },
+
+  // 取得熱賣商品清單
+  async getBestSeller(req, res, next) {
+    try {
+      const { start_date, end_date } = req.query;
+      const orderLinkProductRepo = dataSource.getRepository('Order_link_product');
+
+      // 設定預設時間範圍（如果沒有提供）
+      const startDate = start_date ? new Date(start_date) : new Date(new Date().setDate(new Date().getDate() - 30)); // 預設30天
+      const endDate = end_date ? new Date(end_date) : new Date();
+
+      const bestSellers = await orderLinkProductRepo.find({
+        relations: ['order'],
+        where: {
+          order: {
+            created_at: Between(startDate, endDate),
+            status: 'completed'
+          }
+        },
+        select: {
+          product_id: true,
+          quantity: true
+        }
+      });
+
+      // 計算每個商品的總銷售數量
+      const productSales = bestSellers.reduce((acc, curr) => {
+        if (!acc[curr.product_id]) {
+          acc[curr.product_id] = {
+            product_id: curr.product_id,
+            total_quantity: 0
+          };
+        }
+        acc[curr.product_id].total_quantity += curr.quantity;
+        return acc;
+      }, {});
+
+      // 轉換為陣列並排序，只取前六名
+      const topSixProducts = Object.values(productSales)
+        .sort((a, b) => b.total_quantity - a.total_quantity)
+        .slice(0, 6)
+        .map(item => item.product_id);
+
+      res.status(200).json({
+        message: '成功',
+        data: topSixProducts
+      });
+
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  // 取得其他商品
+  async getExtras(req, res, next) {
+    try {
+      const productRepo = dataSource.getRepository('Product');
+      
+      const extras = await productRepo.find({
+        relations: ['Product_detail'],
+        where: {
+          Product_detail: {
+            classification_id: 5
+          }
+        },
+        order: {
+          created_at: 'DESC'
+        },
+        take: 6
+      });
+
+      const result = extras.map(product => ({
+        id: product.id,
+        name: product.name,
+        image_url: product.image_url,
+        description: product.Product_detail.description,
+        price: product.price
+      }));
+
+      res.status(200).json({
+        message: '成功',
+        data: result
       });
     } catch (error) {
       logger.error('伺服器錯誤', error);
