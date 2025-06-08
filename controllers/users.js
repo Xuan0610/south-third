@@ -309,7 +309,7 @@ const usersController = {
       const checkToken = crypto.createHash('sha256').update(token).digest('hex');
       const userRepository = dataSource.getRepository('USER');
       const findUser = await userRepository.findOne({
-        select: ['id', 'name', 'newPassword', 'role', 'forget_token_is_used', 'forget_token_expire', 'forget_token'],
+        select: ['id', 'name', 'password', 'role', 'forget_token_is_used', 'forget_token_expire', 'forget_token'],
         where: { forget_token: checkToken }
       });
       if (!findUser || findUser.forget_token_is_used === 1 || new Date() > new Date(findUser.forget_token_expire)) {
