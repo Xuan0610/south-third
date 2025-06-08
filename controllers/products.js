@@ -192,7 +192,34 @@ const productsController = {
   async getExtras(req, res, next) {
     try {
       const productRepo = dataSource.getRepository('Product');
+      
+      const extras = await productRepo.find({
+        relations: ['Product_detail'],
+        where: {
+          Product_detail: {
+            classification_id: 5
+          }
+        },
+        order: {
+          created_at: 'DESC'
+        },
+        take: 6
+      });
+
+      const result = extras.map(product => ({
+        id: product.id,
+        name: product.name,
+        image_url: product.image_url,
+        description: product.Product_detail.description,
+        price: product.price
+      }));
+
+      res.status(200).json({
+        message: '成功',
+        data: result
+      });
     } catch (error) {
+      logger.error('伺服器錯誤', error);
       next(error);
     }
   },
