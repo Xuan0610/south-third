@@ -24,7 +24,10 @@ router.get('/:product_id', auth, isAdmin, handleErrorAsync(adminController.getPr
 router.put('/:product_id', auth, isAdmin, handleErrorAsync(adminController.putProductId));
 router.get('/orders', auth, isAdmin, handleErrorAsync(adminController.getAllOrders));
 router.get('/orders/process', auth, isAdmin, handleErrorAsync(adminController.getProcessingOrders));
-router.patch('/orders/:order_id',  auth,  isAdmin,  handleErrorAsync(adminController.updateOrderStatus));
+router.patch('/orders/:order_id', auth, isAdmin, handleErrorAsync(adminController.updateOrderStatus));
 router.get('/orders/history', auth, isAdmin, handleErrorAsync(adminController.getOrderHistory));
+router.get('/:product_id', handleErrorAsync(adminController.getProductId));
+router.put('/:product_id', handleErrorAsync(adminController.putProductId));
+router.post('/', handleErrorAsync(adminController.postProduct));
 
 module.exports = router;

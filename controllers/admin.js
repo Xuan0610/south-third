@@ -216,6 +216,7 @@ const adminController = {
         is_enable: product.is_enable,
         detail: {
           origin: product.Product_detail.origin,
+          name: product.Product_detail.name,
           feature: product.Product_detail.feature,
           variety: product.Product_detail.variety,
           process_method: product.Product_detail.process_method,
@@ -237,7 +238,7 @@ const adminController = {
     }
   },
 
-  // 修改商品資訊(Product entity)
+  // 新增個別商品資訊(Product entity)
   async putProductId(req, res, next) {
     try {
       const { id, name, product_detail_id, origin_price, price, stock, image_url, is_enable } =
