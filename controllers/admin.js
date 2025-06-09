@@ -4,53 +4,60 @@ const { IsNull, In } = require('typeorm');
 const config = require('../config/index');
 const { dataSource } = require('../db/data-source');
 const logger = require('../utils/logger')('UsersController');
-const { isNotValidInteger, isNotValidString, isUndefined, isNotValidPassword, isNotValidName, isNotValidEmail, isNotValidGender, isNotValidBirthday, isNotValidTaiwanMobile, isNotValidTaiwanAddressAdvanced } = require('../utils/validUtils');
+const {
+  isNotValidInteger,
+  isNotValidString,
+  isUndefined,
+  isNotValidPassword,
+  isNotValidName,
+  isNotValidEmail,
+  isNotValidGender,
+  isNotValidBirthday,
+  isNotValidTaiwanMobile,
+  isNotValidTaiwanAddressAdvanced,
+} = require('../utils/validUtils');
 const generateJWT = require('../utils/generateJWT');
-const { sendResetEmail } = require('../utils/mailer');
-const { nanoid } = require('nanoid');
-const crypto = require('crypto');
-const { password } = require('../config/db');
 
 const adminController = {
   async getClassification(req, res, next) {
     try {
       const getClass = await dataSource.getRepository('Classification').find({
-        select: ['id', 'name']
+        select: ['id', 'name'],
       });
-  
+
       res.status(201).json({
         message: '取得成功',
-        data: getClass
+        data: getClass,
       });
-        
     } catch (error) {
       logger.error('伺服器錯誤', error);
       next(error);
     }
   },
+
   async postClassification(req, res, next) {
     try {
       const { name } = req.body;
       if (isUndefined(name) || isNotValidString(name)) {
         res.status(400).json({
-          message: '欄位未填寫正確'
+          message: '欄位未填寫正確',
         });
         return;
       }
       if (name.length < 2 || name.length > 20) {
         res.status(400).json({
-          message: '錯誤的名稱格式'
+          message: '錯誤的名稱格式',
         });
         return;
       }
       const ClassificationRepo = dataSource.getRepository('Classification');
-      const exitClassification = await ClassificationRepo.findOne({ 
-        where: { name } 
+      const exitClassification = await ClassificationRepo.findOne({
+        where: { name },
       });
-      
+
       if (exitClassification) {
         res.status(400).json({
-          message: '資料重複'
+          message: '資料重複',
         });
         return;
       }
@@ -60,15 +67,297 @@ const adminController = {
       res.status(201).json({
         message: '新增成功',
         data: {
-          id: result.id, 
+          id: result.id,
           name: result.name,
-        }
+        },
       });
     } catch (error) {
       logger.error('伺服器錯誤', error);
       next(error);
     }
-  }
+  },
+
+  async postProduct(req, res, next) {
+    try {
+      const {
+        id,
+        name,
+        origin_price,
+        price,
+        stock,
+        image_url,
+        is_enable,
+        origin,
+        feature,
+        variety,
+        process_method,
+        acidity,
+        flavor,
+        aftertaste,
+        description,
+      } = req.body;
+
+      if (
+        isUndefined(id) ||
+        isUndefined(name) ||
+        isUndefined(origin_price) ||
+        isUndefined(price) ||
+        isUndefined(stock) ||
+        isUndefined(image_url) ||
+        isUndefined(is_enable) ||
+        isUndefined(origin) ||
+        isUndefined(feature) ||
+        isUndefined(description)
+      ) {
+        logger.warn('新增商品錯誤: 欄位未填寫正確');
+        res.status(400).json({
+          message: '欄位未填寫正確',
+        });
+        return;
+      }
+
+      if (name.length > 50) {
+        logger.warn('新增商品錯誤: 商品名稱超過長度限制');
+        res.status(400).json({
+          message: '商品名稱超過長度限制',
+        });
+        return;
+      }
+
+      if (feature.length > 30) {
+        logger.warn('新增商品錯誤: 特色描述超過長度限制');
+        res.status(400).json({
+          message: '特色描述超過長度限制',
+        });
+        return;
+      }
+
+      if (origin.length > 15) {
+        logger.warn('新增商品錯誤: 產地名稱超過長度限制');
+        res.status(400).json({
+          message: '產地名稱超過長度限制',
+        });
+        return;
+      }
+
+      if (variety && variety.length > 30) {
+        logger.warn('新增商品錯誤: 品種超過長度限制');
+        res.status(400).json({
+          message: '品種超過長度限制',
+        });
+        return;
+      }
+
+      if (process_method && process_method.length > 30) {
+        logger.warn('新增商品錯誤: 處理方式超過長度限制');
+        res.status(400).json({
+          message: '處理方式超過長度限制',
+        });
+        return;
+      }
+
+      if (acidity && acidity.length > 30) {
+        logger.warn('新增商品錯誤: 酸度超過長度限制');
+        res.status(400).json({
+          message: '酸度超過長度限制',
+        });
+        return;
+      }
+
+      if (flavor && flavor.length > 30) {
+        logger.warn('新增商品錯誤: 風味超過長度限制');
+        res.status(400).json({
+          message: '風味超過長度限制',
+        });
+        return;
+      }
+
+      if (aftertaste && aftertaste.length > 30) {
+        logger.warn('新增商品錯誤: 餘韻超過長度限制');
+        res.status(400).json({
+          message: '餘韻超過長度限制',
+        });
+        return;
+      }
+
+      if (origin_price < 0 || price < 0) {
+        logger.warn('新增商品錯誤: 價格不能為負數');
+        res.status(400).json({
+          message: '價格不能為負數',
+        });
+        return;
+      }
+
+      if (stock < 0) {
+        logger.warn('新增商品錯誤: 庫存不能為負數');
+        res.status(400).json({
+          message: '庫存不能為負數',
+        });
+        return;
+      }
+
+      // const productDetailRepo = dataSource.getRepository('Product_detail');
+      // const findProductDetail = await productDetailRepo.findOne({
+      //   where: { id: products_detail_id },
+      // });
+
+      // if (!findProductDetail) {
+      //   logger.warn('新增商品錯誤: 查無此商品詳情');
+      //   res.status(400).json({
+      //     message: '查無此商品詳情',
+      //   });
+      //   return;
+      // }
+
+      // 建立商品
+      const productRepo = dataSource.getRepository('Product');
+      const newProduct = productRepo.create({
+        id,
+        name,
+        origin_price,
+        price,
+        stock,
+        image_url,
+        is_enable,
+        origin,
+        feature,
+        variety,
+        process_method,
+        acidity,
+        flavor,
+        aftertaste,
+        description,
+      });
+
+      const savedProduct = await productRepo.save(newProduct);
+
+      // 取得完整商品資訊
+      const result = await productRepo.findOne({
+        where: { id: savedProduct.id },
+        // relations: ['Product_detail', 'Product_detail.Classification'],
+      });
+
+      res.status(200).json({
+        message: '新增成功',
+        data: {
+          id: result.id,
+          name: result.name,
+          origin_price: result.origin_price,
+          price: result.price,
+          stock: result.stock,
+          image_url: result.image_url,
+          is_enable: result.is_enable,
+          // detail: {
+          //   id: result.Product_detail.id,
+          //   origin: result.Product_detail.origin,
+          //   feature: result.Product_detail.feature,
+          //   variety: result.Product_detail.variety,
+          //   process_method: result.Product_detail.process_method,
+          //   acidity: result.Product_detail.acidity,
+          //   flavor: result.Product_detail.flavor,
+          //   aftertaste: result.Product_detail.aftertaste,
+          //   description: result.Product_detail.description,
+          //   classification: result.Product_detail.Classification.name,
+          // },
+        },
+      });
+    } catch (error) {
+      logger.error('新增商品資訊錯誤:', error);
+      next(error);
+    }
+  },
+
+  // 取得個別商品資訊(Product entity)
+  async getProductId(req, res, next) {
+    try {
+      const productRepo = dataSource.getRepository('Product');
+
+      const findProduct = await productRepo.find({ relations: ['Product_detail'] });
+
+      const result = findProduct.map(product => ({
+        id: product.id,
+        product_detail_id: product.Product_detail.id,
+        name: product.name,
+        origin_price: product.origin_price,
+        price: product.price,
+        stock: product.stock,
+        image_url: product.image_url,
+        is_enable: product.is_enable,
+        detail: {
+          name: product.Product_detail.name,
+          description: product.Product_detail.description,
+          feature: product.Product_detail.feature,
+        },
+      }));
+
+      res.status(200).json({
+        message: '取得成功',
+        data: result,
+      });
+    } catch (error) {
+      logger.error('伺服器錯誤', error);
+      next(error);
+    }
+  },
+
+  // 新增個別商品資訊(Product entity)
+  async putProductId(req, res, next) {
+    try {
+      const { id, name, product_detail_id, origin_price, price, stock, image_url, is_enable } =
+        req.body;
+
+      const productDetailRepo = dataSource.getRepository('Product_detail');
+      const productRepo = dataSource.getRepository('Product');
+
+      const findProductDetail = await productDetailRepo.findOneBy({ id: product_detail_id });
+
+      const newProduct = productRepo.create({
+        id,
+        name,
+        origin_price,
+        price,
+        stock,
+        image_url,
+        is_enable,
+        Product_detail: findProductDetail,
+      });
+
+      const saveProduct = await productRepo.save(newProduct);
+
+      const createProduct = await productRepo.findOne({
+        where: { id: saveProduct.id },
+        relations: ['Product_detail'],
+      });
+
+      const result = {
+        product: [
+          {
+            id: createProduct.id,
+            name: createProduct.name,
+            product_detail_id: createProduct.Product_detail.id,
+            origin_price: createProduct.origin_price,
+            price: createProduct.price,
+            stock: createProduct.stock,
+            image_url: createProduct.image_url,
+            is_enable: createProduct.is_enable,
+            detail: {
+              name: createProduct.Product_detail.name,
+              description: createProduct.Product_detail.description,
+              feature: createProduct.Product_detail.feature,
+            },
+          },
+        ],
+      };
+
+      res.status(201).json({
+        message: '新增成功',
+        data: result,
+      });
+    } catch (error) {
+      logger.error('伺服器錯誤', error);
+      next(error);
+    }
+  },
 };
 
 module.exports = adminController;

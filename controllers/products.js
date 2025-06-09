@@ -2,7 +2,6 @@ const { dataSource } = require('../db/data-source');
 const logger = require('../utils/logger')('ProductsController');
 const Classification = require('../entities/Classification');
 const { Between, Not, In } = require('typeorm');
-
 const { isNotValidInteger, isNotValidString } = require('../utils/validUtils');
 
 const productsController = {
