@@ -79,7 +79,7 @@ const adminController = {
 
   async postProduct(req, res, next) {
     try {
-      const { id, product_detail_id, name, origin_price, price, stock, image_url, is_enable } =
+      const { id, name, product_detail_id, origin_price, price, stock, image_url, is_enable } =
         req.body;
 
       if (
