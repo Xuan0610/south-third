@@ -16,5 +16,8 @@ const limiter = require('../middlewares/limiter');
 
 router.get('/classification', auth, isAdmin, handleErrorAsync(adminController.getClassification));
 router.post('/classification', auth, isAdmin, handleErrorAsync(adminController.postClassification));
+router.get('/:product_id', handleErrorAsync(adminController.getProductId));
+router.put('/:product_id', handleErrorAsync(adminController.putProductId));
+router.post('/', handleErrorAsync(adminController.postProduct));
 
 module.exports = router;

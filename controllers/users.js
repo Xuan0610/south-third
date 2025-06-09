@@ -4,56 +4,75 @@ const { IsNull, In } = require('typeorm');
 const config = require('../config/index');
 const { dataSource } = require('../db/data-source');
 const logger = require('../utils/logger')('UsersController');
-const { isNotValidInteger, isNotValidString, isUndefined, isNotValidPassword, isNotValidName, isNotValidEmail, isNotValidGender, isNotValidBirthday, isNotValidTaiwanMobile, isNotValidTaiwanAddressAdvanced } = require('../utils/validUtils');
+const {
+  isNotValidInteger,
+  isNotValidString,
+  isUndefined,
+  isNotValidPassword,
+  isNotValidName,
+  isNotValidEmail,
+  isNotValidGender,
+  isNotValidBirthday,
+  isNotValidTaiwanMobile,
+  isNotValidTaiwanAddressAdvanced,
+} = require('../utils/validUtils');
 const generateJWT = require('../utils/generateJWT');
 const { sendResetEmail } = require('../utils/mailer');
 const { nanoid } = require('nanoid');
 const crypto = require('crypto');
 const { password } = require('../config/db');
 
-
 const usersController = {
   async postSignup(req, res, next) {
     try {
       const { email, password, name } = req.body;
-      if (isUndefined(name) || isNotValidString(name) || isUndefined(email) || isNotValidString(email) || isUndefined(password) || isNotValidString(password)) {
+      if (
+        isUndefined(name) ||
+        isNotValidString(name) ||
+        isUndefined(email) ||
+        isNotValidString(email) ||
+        isUndefined(password) ||
+        isNotValidString(password)
+      ) {
         logger.warn('欄位未填寫正確');
         res.status(400).json({
-          message: '欄位未填寫正確'
+          message: '欄位未填寫正確',
         });
         return;
       }
       if (isNotValidEmail(email)) {
         logger.warn('建立使用者錯誤: 信箱格式錯誤');
         res.status(400).json({
-          message: '信箱格式錯誤'
+          message: '信箱格式錯誤',
         });
         return;
       }
       if (isNotValidPassword(password)) {
-        logger.warn('建立使用者錯誤: 密碼不符合規則，需要包含英文數字大小寫，最短8個字，最長16個字');
+        logger.warn(
+          '建立使用者錯誤: 密碼不符合規則，需要包含英文數字大小寫，最短8個字，最長16個字'
+        );
         res.status(400).json({
-          message: '密碼不符合規則，需要包含英文數字大小寫，最短8個字，最長16個字'
+          message: '密碼不符合規則，需要包含英文數字大小寫，最短8個字，最長16個字',
         });
         return;
       }
       if (isNotValidName(name)) {
         logger.warn('建立使用者錯誤: 會員名稱長度不符');
         res.status(400).json({
-          message: '會員名稱長度不符，最少 2 個字元，最長 10 字元，不得包含特殊字元與空白'
+          message: '會員名稱長度不符，最少 2 個字元，最長 10 字元，不得包含特殊字元與空白',
         });
         return;
       }
 
       const userRepository = dataSource.getRepository('User');
       const existingUser = await userRepository.findOne({
-        where: { email }
+        where: { email },
       });
 
       if (existingUser) {
         logger.warn('建立使用者錯誤: Email 已被使用');
         res.status(409).json({
-          message: '註冊失敗，Email 已被使用'
+          message: '註冊失敗，Email 已被使用',
         });
         return;
       }
@@ -63,7 +82,7 @@ const usersController = {
         name,
         email,
         role: 'USER',
-        password: hashPassword
+        password: hashPassword,
       });
       const savedUser = await userRepository.save(newUser);
       logger.info('新建立的使用者ID:', savedUser.id);
@@ -71,9 +90,9 @@ const usersController = {
         message: '註冊成功',
         data: {
           USER: {
-            name: savedUser.name
-          }
-        }
+            name: savedUser.name,
+          },
+        },
       });
     } catch (error) {
       logger.error('建立使用者錯誤:', error);
@@ -84,36 +103,41 @@ const usersController = {
   async postLogin(req, res, next) {
     try {
       const { email, password } = req.body;
-      if (isUndefined(email) || isNotValidString(email) || isUndefined(password) || isNotValidString(password)) {
+      if (
+        isUndefined(email) ||
+        isNotValidString(email) ||
+        isUndefined(password) ||
+        isNotValidString(password)
+      ) {
         logger.warn('欄位未填寫正確');
         res.status(400).json({
-          message: '欄位未填寫正確'
+          message: '欄位未填寫正確',
         });
         return;
       }
       if (isNotValidEmail(email)) {
         logger.warn('建立使用者錯誤: 信箱格式錯誤');
         res.status(400).json({
-          message: '信箱格式錯誤'
+          message: '信箱格式錯誤',
         });
         return;
       }
       if (isNotValidPassword(password)) {
         logger.warn('密碼不符合規則，需要包含英文數字大小寫，最短8個字，最長16個字');
         res.status(400).json({
-          message: '密碼不符合規則，需要包含英文數字大小寫，最短8個字，最長16個字'
+          message: '密碼不符合規則，需要包含英文數字大小寫，最短8個字，最長16個字',
         });
         return;
       }
       const userRepository = dataSource.getRepository('User');
       const existingUser = await userRepository.findOne({
         select: ['id', 'name', 'password', 'role'],
-        where: { email }
+        where: { email },
       });
 
       if (!existingUser) {
         res.status(401).json({
-          message: '使用者不存在或密碼輸入錯誤'
+          message: '使用者不存在或密碼輸入錯誤',
         });
         return;
       }
@@ -121,24 +145,28 @@ const usersController = {
       const isMatch = await bcrypt.compare(password, existingUser.password);
       if (!isMatch) {
         res.status(401).json({
-          message: '使用者不存在或密碼輸入錯誤'
+          message: '使用者不存在或密碼輸入錯誤',
         });
         return;
       }
-      const token = await generateJWT({
-        id: existingUser.id,
-        role: existingUser.role
-      }, config.get('secret.jwtSecret'), {
-        expiresIn: `${config.get('secret.jwtExpiresDay')}`
-      });
+      const token = await generateJWT(
+        {
+          id: existingUser.id,
+          role: existingUser.role,
+        },
+        config.get('secret.jwtSecret'),
+        {
+          expiresIn: `${config.get('secret.jwtExpiresDay')}`,
+        }
+      );
 
       res.status(201).json({
         data: {
           token,
           user: {
-            name: existingUser.name
-          }
-        }
+            name: existingUser.name,
+          },
+        },
       });
     } catch (error) {
       logger.error('登入錯誤:', error);
@@ -152,13 +180,13 @@ const usersController = {
       const userRepository = dataSource.getRepository('User');
       const user = await userRepository.findOne({
         select: ['name', 'gender', 'birth_date', 'phone', 'address'],
-        where: { id }
+        where: { id },
       });
       res.status(200).json({
         message: '登入成功',
         data: {
-          user
-        }
+          user,
+        },
       });
     } catch (error) {
       logger.error('取得使用者資料錯誤:', error);
@@ -170,45 +198,51 @@ const usersController = {
     try {
       const { id } = req.user;
       const { name, gender, birth_date, phone, address } = req.body;
-      if (isUndefined(name) || isUndefined(gender) || isUndefined(birth_date) || isUndefined(phone) || isUndefined(address)) {
+      if (
+        isUndefined(name) ||
+        isUndefined(gender) ||
+        isUndefined(birth_date) ||
+        isUndefined(phone) ||
+        isUndefined(address)
+      ) {
         logger.warn('欄位未填寫正確');
         res.status(400).json({
-          message: '欄位未填寫正確'
+          message: '欄位未填寫正確',
         });
         return;
       }
       if (isNotValidName(name) || isNotValidString(name)) {
         logger.warn('編輯使用者錯誤: 姓名格式錯誤');
         res.status(400).json({
-          message: '姓名格式錯誤'
+          message: '姓名格式錯誤',
         });
         return;
       }
       if (isNotValidGender(gender)) {
         logger.warn('編輯使用者錯誤: 性別格式錯誤');
         res.status(400).json({
-          message: '性別格式錯誤'
+          message: '性別格式錯誤',
         });
         return;
       }
       if (isNotValidBirthday(birth_date)) {
         logger.warn('編輯使用者錯誤: 生日格式錯誤');
         res.status(400).json({
-          message: '生日格式錯誤'
+          message: '生日格式錯誤',
         });
         return;
       }
       if (isNotValidTaiwanMobile(phone)) {
         logger.warn('編輯使用者錯誤: 手機格式錯誤');
         res.status(400).json({
-          message: '手機號碼不符合規則，需為台灣手機號碼'
+          message: '手機號碼不符合規則，需為台灣手機號碼',
         });
         return;
       }
       if (isNotValidTaiwanAddressAdvanced(address) && address !== '') {
         logger.warn('編輯使用者錯誤: 地址格式錯誤');
         res.status(400).json({
-          message: '地址格式錯誤，需為台灣地址'
+          message: '地址格式錯誤，需為台灣地址',
         });
         return;
       }
@@ -216,40 +250,49 @@ const usersController = {
       const user = await userRepository.findOne({
         select: ['name', 'gender', 'birth_date', 'phone', 'address'],
         where: {
-          id
-        }
+          id,
+        },
       });
-      if (user.name === name && user.gender === gender && user.birth_date === birth_date && user.phone === phone && user.address === address) {
+      if (
+        user.name === name &&
+        user.gender === gender &&
+        user.birth_date === birth_date &&
+        user.phone === phone &&
+        user.address === address
+      ) {
         res.status(400).json({
-          message: '使用者資料未變更'
+          message: '使用者資料未變更',
         });
         return;
       }
-      const updatedResult = await userRepository.update({
-        id,
-      }, {
-        name,
-        gender,
-        birth_date,
-        phone,
-        address
-      });
+      const updatedResult = await userRepository.update(
+        {
+          id,
+        },
+        {
+          name,
+          gender,
+          birth_date,
+          phone,
+          address,
+        }
+      );
       if (updatedResult.affected === 0) {
         res.status(400).json({
-          message: '更新使用者資料失敗'
+          message: '更新使用者資料失敗',
         });
         return;
       }
       const result = await userRepository.findOne({
         select: ['name', 'gender', 'birth_date', 'phone', 'address'],
         where: {
-          id
-        }
+          id,
+        },
       });
       res.status(200).json({
         data: {
-          user: result
-        }
+          user: result,
+        },
       });
     } catch (error) {
       logger.error('取得使用者資料錯誤:', error);
@@ -283,13 +326,15 @@ const usersController = {
       const token = nanoid(20);
       sendResetEmail(email, token);
       const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-      const forgetTokenExpire = new Date(Date.now() + 30 * 60 * 1000);  // set 30 min expire
-      await userRepository.update({ email }, {
-        forget_token: tokenHash,
-        forget_token_expire: forgetTokenExpire,
-        forget_token_is_used: 0,
-      });
-
+      const forgetTokenExpire = new Date(Date.now() + 30 * 60 * 1000); // set 30 min expire
+      await userRepository.update(
+        { email },
+        {
+          forget_token: tokenHash,
+          forget_token_expire: forgetTokenExpire,
+          forget_token_is_used: 0,
+        }
+      );
     } catch (error) {
       logger.error('使用者忘記密碼錯誤:', error);
       next(error);
@@ -309,10 +354,22 @@ const usersController = {
       const checkToken = crypto.createHash('sha256').update(token).digest('hex');
       const userRepository = dataSource.getRepository('USER');
       const findUser = await userRepository.findOne({
-        select: ['id', 'name', 'password', 'role', 'forget_token_is_used', 'forget_token_expire', 'forget_token'],
-        where: { forget_token: checkToken }
+        select: [
+          'id',
+          'name',
+          'password',
+          'role',
+          'forget_token_is_used',
+          'forget_token_expire',
+          'forget_token',
+        ],
+        where: { forget_token: checkToken },
       });
-      if (!findUser || findUser.forget_token_is_used === 1 || new Date() > new Date(findUser.forget_token_expire)) {
+      if (
+        !findUser ||
+        findUser.forget_token_is_used === 1 ||
+        new Date() > new Date(findUser.forget_token_expire)
+      ) {
         res.status(401).json({
           message: 'Token錯誤或已過期',
         });
@@ -333,18 +390,21 @@ const usersController = {
       const isMatch = await bcrypt.compare(newPassword, findUser.password);
       if (isMatch) {
         res.status(400).json({
-          message: '密碼歷程記錄不符'
+          message: '密碼歷程記錄不符',
         });
         return;
       }
       const salt = await bcrypt.genSalt(10);
       const newHashPassword = await bcrypt.hash(newPassword, salt);
-      const existUser = await userRepository.update({
-        forget_token: checkToken
-      }, {
-        password: newHashPassword,
-        forget_token_is_used: 1
-      });
+      const existUser = await userRepository.update(
+        {
+          forget_token: checkToken,
+        },
+        {
+          password: newHashPassword,
+          forget_token_is_used: 1,
+        }
+      );
       if (existUser.affected === 0) {
         res.status(400).json({
           message: '使用者資料未更新',
@@ -352,7 +412,7 @@ const usersController = {
         return;
       }
       res.status(200).json({
-        message: '密碼更新成功'
+        message: '密碼更新成功',
       });
     } catch (error) {
       logger.warn('使用者重設密碼錯誤:', error);
@@ -362,4 +422,3 @@ const usersController = {
 };
 
 module.exports = usersController;
-

@@ -2,7 +2,6 @@ const { dataSource } = require('../db/data-source');
 const logger = require('../utils/logger')('ProductsController');
 const Classification = require('../entities/Classification');
 const { Between, Not, In } = require('typeorm');
-
 const { isNotValidInteger, isNotValidString } = require('../utils/validUtils');
 
 const productsController = {
@@ -42,18 +41,18 @@ const productsController = {
           });
           return;
         }
-        
+
         queryOptions.where = {
           Product_detail: {
             classification_id: classification,
-          }
+          },
         };
       }
 
       const productRepo = dataSource.getRepository('Product');
       const findProduct = await productRepo.find(queryOptions);
 
-      const productResult = findProduct.map((products) => ({
+      const productResult = findProduct.map(products => ({
         id: products.id,
         name: products.name,
         image_url: products.image_url,
@@ -98,16 +97,8 @@ const productsController = {
       }
 
       const { id, name, image_url, stock, price, Product_detail } = findProduct;
-      const {
-        origin,
-        feature,
-        variety,
-        process_method,
-        acidity,
-        flavor,
-        aftertaste,
-        description,
-      } = Product_detail;
+      const { origin, feature, variety, process_method, acidity, flavor, aftertaste, description } =
+        Product_detail;
 
       const result = {
         id,
@@ -143,7 +134,9 @@ const productsController = {
       const orderLinkProductRepo = dataSource.getRepository('Order_link_product');
 
       // 設定預設時間範圍（如果沒有提供）
-      const startDate = start_date ? new Date(start_date) : new Date(new Date().setDate(new Date().getDate() - 30)); // 預設30天
+      const startDate = start_date
+        ? new Date(start_date)
+        : new Date(new Date().setDate(new Date().getDate() - 30)); // 預設30天
       const endDate = end_date ? new Date(end_date) : new Date();
 
       const bestSellers = await orderLinkProductRepo.find({
@@ -151,13 +144,13 @@ const productsController = {
         where: {
           order: {
             created_at: Between(startDate, endDate),
-            status: 'completed'
-          }
+            status: 'completed',
+          },
         },
         select: {
           product_id: true,
-          quantity: true
-        }
+          quantity: true,
+        },
       });
 
       // 計算每個商品的總銷售數量
@@ -165,7 +158,7 @@ const productsController = {
         if (!acc[curr.product_id]) {
           acc[curr.product_id] = {
             product_id: curr.product_id,
-            total_quantity: 0
+            total_quantity: 0,
           };
         }
         acc[curr.product_id].total_quantity += curr.quantity;
@@ -180,9 +173,8 @@ const productsController = {
 
       res.status(200).json({
         message: '成功',
-        data: topSixProducts
+        data: topSixProducts,
       });
-
     } catch (error) {
       next(error);
     }
@@ -192,18 +184,18 @@ const productsController = {
   async getExtras(req, res, next) {
     try {
       const productRepo = dataSource.getRepository('Product');
-      
+
       const extras = await productRepo.find({
         relations: ['Product_detail'],
         where: {
           Product_detail: {
-            classification_id: 5
-          }
+            classification_id: 5,
+          },
         },
         order: {
-          created_at: 'DESC'
+          created_at: 'DESC',
         },
-        take: 6
+        take: 6,
       });
 
       const result = extras.map(product => ({
@@ -211,12 +203,12 @@ const productsController = {
         name: product.name,
         image_url: product.image_url,
         description: product.Product_detail.description,
-        price: product.price
+        price: product.price,
       }));
 
       res.status(200).json({
         message: '成功',
-        data: result
+        data: result,
       });
     } catch (error) {
       logger.error('伺服器錯誤', error);
