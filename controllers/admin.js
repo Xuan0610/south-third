@@ -368,7 +368,38 @@ const adminController = {
     }
   },
 
-  async getProductDetail(req, res, next) {},
+  async getProductDetail(req, res, next) {
+    try {
+      const productDetailRepo = dataSource.getRepository('Product_detail');
+
+      const details = await productDetailRepo.find({
+        relations: ['Classification'],
+      });
+
+      const result = details.map(detail => ({
+        id: detail.id,
+        name: detail.name,
+        origin: detail.origin,
+        feature: detail.feature,
+        variety: detail.variety,
+        process_method: detail.process_method,
+        acidity: detail.acidity,
+        flavor: detail.flavor,
+        aftertaste: detail.aftertaste,
+        description: detail.description,
+        classification_id: detail.classification_id,
+        classification_name: detail.Classification?.name || null,
+      }));
+
+      res.status(200).json({
+        message: '取得成功',
+        data: result,
+      });
+    } catch (error) {
+      logger.error('取得商品詳情失敗:', error);
+      next(error);
+    }
+  },
 
   async postProductDetail(req, res, next) {
     try {
