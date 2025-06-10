@@ -270,9 +270,12 @@ const adminController = {
   // 取得個別商品資訊(Product entity)
   async getProductId(req, res, next) {
     try {
+      const { id } = req.params;
       const productRepo = dataSource.getRepository('Product');
-
-      const findProduct = await productRepo.find({ relations: ['Product_detail'] });
+      const findProduct = await productRepo.find({
+        where: { id },
+        relations: ['Product_detail', 'Product_detail.Classification'],
+      });
 
       const result = findProduct.map(product => ({
         id: product.id,
@@ -284,9 +287,15 @@ const adminController = {
         image_url: product.image_url,
         is_enable: product.is_enable,
         detail: {
-          name: product.Product_detail.name,
-          description: product.Product_detail.description,
+          origin: product.Product_detail.origin,
           feature: product.Product_detail.feature,
+          variety: product.Product_detail.variety,
+          process_method: product.Product_detail.process_method,
+          acidity: product.Product_detail.acidity,
+          flavor: product.Product_detail.flavor,
+          aftertaste: product.Product_detail.aftertaste,
+          description: product.Product_detail.description,
+          classification: product.Product_detail.Classification.name,
         },
       }));
 
