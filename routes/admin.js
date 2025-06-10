@@ -31,8 +31,6 @@ router.put('/:product_id', handleErrorAsync(adminController.putProductId));
 router.post('/', handleErrorAsync(adminController.postProduct));
 router.get('/:product_id', auth, isAdmin, handleErrorAsync(adminController.getProductId));
 router.put('/:product_id', auth, isAdmin, handleErrorAsync(adminController.putProductId));
-router.get('/product_detail', auth, isAdmin, handleErrorAsync(adminController.getProductDetail));
-router.post('/product_detail', auth, isAdmin, handleErrorAsync(adminController.putProductDetail));
 router.post('/', auth, isAdmin, handleErrorAsync(adminController.postProduct));
 
 module.exports = router;
