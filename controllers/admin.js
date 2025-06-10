@@ -367,6 +367,140 @@ const adminController = {
       next(error);
     }
   },
+
+  async getProductDetail(req, res, next) {},
+
+  async postProductDetail(req, res, next) {
+    try {
+      const {
+        name,
+        origin,
+        feature,
+        variety,
+        process_method,
+        acidity,
+        flavor,
+        aftertaste,
+        description,
+        classification_id,
+      } = req.body;
+
+      if (
+        isUndefined(name) ||
+        isUndefined(origin) ||
+        isUndefined(feature) ||
+        isUndefined(description) ||
+        isUndefined(classification_id)
+      ) {
+        logger.warn('新增商品詳情錯誤: 欄位未填寫正確');
+        res.status(400).json({
+          message: '欄位未填寫正確',
+        });
+        return;
+      }
+
+      if (name.length > 50) {
+        res.status(400).json({
+          message: '類別名稱長度超過 50 字',
+        });
+        return;
+      }
+      if (feature.length > 30) {
+        res.status(400).json({
+          message: '產品特徵長度超過 30 字',
+        });
+        return;
+      }
+      if (origin.length > 15) {
+        res.status(400).json({
+          message: '產地長度超過 15 字',
+        });
+        return;
+      }
+      if (variety && variety.length > 30) {
+        res.status(400).json({
+          message: '品種長度超過 30 字',
+        });
+        return;
+      }
+      if (process_method && process_method.length > 30) {
+        res.status(400).json({
+          message: '處理方式長度超過 30 字',
+        });
+        return;
+      }
+      if (acidity && acidity.length > 30) {
+        res.status(400).json({
+          message: '酸度長度超過 30 字',
+        });
+        return;
+      }
+      if (flavor && flavor.length > 30) {
+        res.status(400).json({
+          message: '甜感長度超過 30 字',
+        });
+        return;
+      }
+      if (aftertaste && aftertaste.length > 30) {
+        res.status(400).json({
+          message: '尾韻長度超過 30 字',
+        });
+        return;
+      }
+
+      if (isNotValidInteger(classification_id) || classification_id === 0) {
+        res.status(400).json({
+          message: '分類ID格式錯誤',
+        });
+        return;
+      }
+
+      const classificationRepo = dataSource.getRepository('Classification');
+      const classification = await classificationRepo.findOneBy({ id: classification_id });
+      if (!classification) {
+        res.status(400).json({
+          message: '查無此分類',
+        });
+        return;
+      }
+
+      const productDetailRepo = dataSource.getRepository('Product_detail');
+      const newProductDetail = productDetailRepo.create({
+        name,
+        origin,
+        feature,
+        variety,
+        process_method,
+        acidity,
+        flavor,
+        aftertaste,
+        description,
+        Classification: classification,
+      });
+
+      const savedProductDetail = await productDetailRepo.save(newProductDetail);
+
+      res.status(200).json({
+        message: '新增成功',
+        // data: {
+        //   id: savedProductDetail.id,
+        //   name: savedProductDetail.name,
+        //   origin: savedProductDetail.origin,
+        //   feature: savedProductDetail.feature,
+        //   variety: savedProductDetail.variety,
+        //   process_method: savedProductDetail.process_method,
+        //   acidity: savedProductDetail.acidity,
+        //   flavor: savedProductDetail.flavor,
+        //   aftertaste: savedProductDetail.aftertaste,
+        //   description: savedProductDetail.description,
+        //   classification_id: savedProductDetail.classification_id,
+        // },
+      });
+    } catch (error) {
+      logger.error('新增商品詳情錯誤:', error);
+      next(error);
+    }
+  },
 };
 
 module.exports = adminController;
