@@ -29,5 +29,8 @@ router.get('/orders/history', auth, isAdmin, handleErrorAsync(adminController.ge
 router.get('/:product_id', handleErrorAsync(adminController.getProductId));
 router.put('/:product_id', handleErrorAsync(adminController.putProductId));
 router.post('/', handleErrorAsync(adminController.postProduct));
+router.get('/:product_id', auth, isAdmin, handleErrorAsync(adminController.getProductId));
+router.put('/:product_id', auth, isAdmin, handleErrorAsync(adminController.putProductId));
+router.post('/', auth, isAdmin, handleErrorAsync(adminController.postProduct));
 
 module.exports = router;
