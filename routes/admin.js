@@ -17,6 +17,8 @@ router.get('/classification', auth, isAdmin, handleErrorAsync(adminController.ge
 router.post('/classification', auth, isAdmin, handleErrorAsync(adminController.postClassification));
 router.get('/:product_id', auth, isAdmin, handleErrorAsync(adminController.getProductId));
 router.put('/:product_id', auth, isAdmin, handleErrorAsync(adminController.putProductId));
+router.get('/product_detail', auth, isAdmin, handleErrorAsync(adminController.getProductDetail));
+router.post('/product_detail', auth, isAdmin, handleErrorAsync(adminController.putProductDetail));
 router.post('/', auth, isAdmin, handleErrorAsync(adminController.postProduct));
 
 module.exports = router;
