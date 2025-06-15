@@ -79,35 +79,18 @@ const adminController = {
 
   async postProduct(req, res, next) {
     try {
-      const {
-        id,
-        name,
-        origin_price,
-        price,
-        stock,
-        image_url,
-        is_enable,
-        origin,
-        feature,
-        variety,
-        process_method,
-        acidity,
-        flavor,
-        aftertaste,
-        description,
-      } = req.body;
+      const { id, product_detail_id, name, origin_price, price, stock, image_url, is_enable } =
+        req.body;
 
       if (
         isUndefined(id) ||
         isUndefined(name) ||
+        isNotValidString(name) ||
         isUndefined(origin_price) ||
         isUndefined(price) ||
         isUndefined(stock) ||
         isUndefined(image_url) ||
-        isUndefined(is_enable) ||
-        isUndefined(origin) ||
-        isUndefined(feature) ||
-        isUndefined(description)
+        isUndefined(is_enable)
       ) {
         logger.warn('新增商品錯誤: 欄位未填寫正確');
         res.status(400).json({
@@ -124,63 +107,7 @@ const adminController = {
         return;
       }
 
-      if (feature.length > 30) {
-        logger.warn('新增商品錯誤: 特色描述超過長度限制');
-        res.status(400).json({
-          message: '特色描述超過長度限制',
-        });
-        return;
-      }
-
-      if (origin.length > 15) {
-        logger.warn('新增商品錯誤: 產地名稱超過長度限制');
-        res.status(400).json({
-          message: '產地名稱超過長度限制',
-        });
-        return;
-      }
-
-      if (variety && variety.length > 30) {
-        logger.warn('新增商品錯誤: 品種超過長度限制');
-        res.status(400).json({
-          message: '品種超過長度限制',
-        });
-        return;
-      }
-
-      if (process_method && process_method.length > 30) {
-        logger.warn('新增商品錯誤: 處理方式超過長度限制');
-        res.status(400).json({
-          message: '處理方式超過長度限制',
-        });
-        return;
-      }
-
-      if (acidity && acidity.length > 30) {
-        logger.warn('新增商品錯誤: 酸度超過長度限制');
-        res.status(400).json({
-          message: '酸度超過長度限制',
-        });
-        return;
-      }
-
-      if (flavor && flavor.length > 30) {
-        logger.warn('新增商品錯誤: 風味超過長度限制');
-        res.status(400).json({
-          message: '風味超過長度限制',
-        });
-        return;
-      }
-
-      if (aftertaste && aftertaste.length > 30) {
-        logger.warn('新增商品錯誤: 餘韻超過長度限制');
-        res.status(400).json({
-          message: '餘韻超過長度限制',
-        });
-        return;
-      }
-
-      if (origin_price < 0 || price < 0) {
+      if (isNotValidInteger(origin_price) || isNotValidInteger(price)) {
         logger.warn('新增商品錯誤: 價格不能為負數');
         res.status(400).json({
           message: '價格不能為負數',
@@ -196,69 +123,70 @@ const adminController = {
         return;
       }
 
-      // const productDetailRepo = dataSource.getRepository('Product_detail');
-      // const findProductDetail = await productDetailRepo.findOne({
-      //   where: { id: products_detail_id },
-      // });
+      const productDetailRepo = dataSource.getRepository('Product_detail');
+      const findProductDetail = await productDetailRepo.findOne({
+        where: { id: product_detail_id },
+      });
 
-      // if (!findProductDetail) {
-      //   logger.warn('新增商品錯誤: 查無此商品詳情');
-      //   res.status(400).json({
-      //     message: '查無此商品詳情',
-      //   });
-      //   return;
-      // }
+      if (!findProductDetail) {
+        logger.warn('新增商品錯誤: 查無此商品詳情');
+        res.status(400).json({
+          message: '查無此商品詳情',
+        });
+        return;
+      }
 
-      // 建立商品
       const productRepo = dataSource.getRepository('Product');
+      const exitProduct = await productRepo.findOne({
+        where: { id },
+      });
+      if (exitProduct) {
+        res.status(400).json({
+          message: '商品 ID 重複',
+        });
+        return;
+      }
       const newProduct = productRepo.create({
         id,
+        product_detail_id,
         name,
         origin_price,
         price,
         stock,
         image_url,
         is_enable,
-        origin,
-        feature,
-        variety,
-        process_method,
-        acidity,
-        flavor,
-        aftertaste,
-        description,
       });
 
       const savedProduct = await productRepo.save(newProduct);
 
-      // 取得完整商品資訊
       const result = await productRepo.findOne({
         where: { id: savedProduct.id },
-        // relations: ['Product_detail', 'Product_detail.Classification'],
+        relations: ['Product_detail', 'Product_detail.Classification'],
       });
 
       res.status(200).json({
         message: '新增成功',
         data: {
           id: result.id,
+          product_detail_id: result.Product_detail.id,
           name: result.name,
           origin_price: result.origin_price,
           price: result.price,
           stock: result.stock,
           image_url: result.image_url,
           is_enable: result.is_enable,
-          // detail: {
-          //   id: result.Product_detail.id,
-          //   origin: result.Product_detail.origin,
-          //   feature: result.Product_detail.feature,
-          //   variety: result.Product_detail.variety,
-          //   process_method: result.Product_detail.process_method,
-          //   acidity: result.Product_detail.acidity,
-          //   flavor: result.Product_detail.flavor,
-          //   aftertaste: result.Product_detail.aftertaste,
-          //   description: result.Product_detail.description,
-          //   classification: result.Product_detail.Classification.name,
-          // },
+          detail: {
+            id: result.Product_detail.id,
+            origin: result.Product_detail.origin,
+            feature: result.Product_detail.feature,
+            variety: result.Product_detail.variety,
+            process_method: result.Product_detail.process_method,
+            acidity: result.Product_detail.acidity,
+            flavor: result.Product_detail.flavor,
+            aftertaste: result.Product_detail.aftertaste,
+            description: result.Product_detail.description,
+            classification: result.Product_detail.Classification.name,
+          },
         },
       });
     } catch (error) {
@@ -317,7 +245,6 @@ const adminController = {
 
       const productDetailRepo = dataSource.getRepository('Product_detail');
       const productRepo = dataSource.getRepository('Product');
-
       const findProductDetail = await productDetailRepo.findOneBy({ id: product_detail_id });
 
       const newProduct = productRepo.create({
