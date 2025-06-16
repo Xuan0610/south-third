@@ -238,7 +238,7 @@ const adminController = {
     }
   },
 
-  // 新增個別商品資訊(Product entity)
+  // 修改商品資訊(Product entity)
   async putProductId(req, res, next) {
     try {
       const { id, name, product_detail_id, origin_price, price, stock, image_url, is_enable } =
