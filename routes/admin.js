@@ -18,6 +18,8 @@ router.post('/classification', auth, isAdmin, handleErrorAsync(adminController.p
 router.get('/product_detail', auth, isAdmin, handleErrorAsync(adminController.getProductDetail));
 router.post('/product_detail', auth, isAdmin, handleErrorAsync(adminController.postProductDetail));
 router.post('/products', auth, isAdmin, handleErrorAsync(adminController.postProduct));
+router.get('/orders/is_ship', auth, isAdmin, handleErrorAsync(adminController.getIsShip));
+router.get('/orders/revenue', auth, isAdmin, handleErrorAsync(adminController.getRevenue));
 router.get('/:product_id', auth, isAdmin, handleErrorAsync(adminController.getProductId));
 router.put('/:product_id', auth, isAdmin, handleErrorAsync(adminController.putProductId));
 router.get('/orders', auth, isAdmin, handleErrorAsync(adminController.getAllOrders));
