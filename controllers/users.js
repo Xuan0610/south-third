@@ -300,6 +300,23 @@ const usersController = {
     }
   },
 
+  async getReceiver(req, res, next) {
+    try {
+      const { id } = req.user;
+      const receiverRepository = dataSource.getRepository('Receiver');
+      const findUser = await receiverRepository.findOne({
+        select: ['name', 'phone', 'post_code', 'address'],
+        where: { id }
+      });
+      res.status(200).json({
+        data: findUser
+      });
+    } catch (error) {
+      logger.error('取得收件資訊錯誤:', error);
+      next(error);
+    }
+  },
+
   async patchForget(req, res, next) {
     try {
       const { email } = req.body;
@@ -422,3 +439,4 @@ const usersController = {
 };
 
 module.exports = usersController;
+
