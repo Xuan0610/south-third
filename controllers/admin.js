@@ -1,5 +1,5 @@
 const bcrypt = require('bcrypt');
-const { IsNull, In } = require('typeorm');
+const { IsNull, In, Between } = require('typeorm');
 
 const config = require('../config/index');
 const { dataSource } = require('../db/data-source');
@@ -195,7 +195,7 @@ const adminController = {
     }
   },
 
-  // 取得個別商品資訊(Product entity)
+  // 取得單一商品資訊(Product entity)
   async getProductId(req, res, next) {
     try {
       const { id } = req.params;
@@ -237,7 +237,7 @@ const adminController = {
     }
   },
 
-  // 新增個別商品資訊(Product entity)
+  // 修改商品資訊(Product entity)
   async putProductId(req, res, next) {
     try {
       const { id, name, product_detail_id, origin_price, price, stock, image_url, is_enable } =
@@ -456,6 +456,67 @@ const adminController = {
       });
     } catch (error) {
       logger.error('新增商品詳情錯誤:', error);
+      next(error);
+    }
+  },
+
+  async getIsShip(req, res, next) {
+    try {
+      const orderRepo = dataSource.getRepository('Order');
+
+      const unshippedCount = await orderRepo.count({
+        where: { is_ship: false },
+      });
+
+      const now = new Date();
+      const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+
+      const shippedThisMonthCount = await orderRepo.count({
+        where: {
+          is_ship: true,
+          created_at: Between(firstDayOfMonth, lastDayOfMonth),
+        },
+      });
+
+      res.status(200).json({
+        message: '取得成功',
+        data: {
+          unshippedCount,
+          shippedThisMonthCount,
+        },
+      });
+    } catch (error) {
+      logger.error('取得出貨統計錯誤:', error);
+      next(error);
+    }
+  },
+
+  async getRevenue(req, res, next) {
+    try {
+      const orderRepo = dataSource.getRepository('Order');
+
+      const now = new Date();
+      const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+
+      const orders = await orderRepo.find({
+        where: {
+          is_paid: true,
+          created_at: Between(firstDayOfMonth, lastDayOfMonth),
+        },
+      });
+
+      const revenue = orders.reduce((sum, order) => sum + (order.total_price || 0), 0);
+
+      res.status(200).json({
+        message: '本月營業額統計成功',
+        data: {
+          revenue,
+        },
+      });
+    } catch (error) {
+      logger.error('取得本月營業額錯誤:', error);
       next(error);
     }
   },
