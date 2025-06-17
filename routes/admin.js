@@ -13,8 +13,12 @@ const auth = require('../middlewares/auth')({
 const isAdmin = require('../middlewares/isAdmin');
 const limiter = require('../middlewares/limiter');
 
-
 router.get('/classification', auth, isAdmin, handleErrorAsync(adminController.getClassification));
 router.post('/classification', auth, isAdmin, handleErrorAsync(adminController.postClassification));
+router.get('/product_detail', auth, isAdmin, handleErrorAsync(adminController.getProductDetail));
+router.post('/product_detail', auth, isAdmin, handleErrorAsync(adminController.postProductDetail));
+router.post('/products', auth, isAdmin, handleErrorAsync(adminController.postProduct));
+router.get('/:product_id', auth, isAdmin, handleErrorAsync(adminController.getProductId));
+router.put('/:product_id', auth, isAdmin, handleErrorAsync(adminController.putProductId));
 
 module.exports = router;
