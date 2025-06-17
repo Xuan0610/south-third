@@ -475,8 +475,8 @@ const usersController = {
           display_id: order.display_id,
           product_name: firstProduct ? firstProduct.name : '無商品',
           total_price: order.total_price,
-          is_paid: order.is_paid ? 0 : 1,
-          is_ship: order.is_ship ? 0 : 1,
+          is_paid: order.is_paid ? 1 : 0,
+          is_ship: order.is_ship ? 1 : 0,
         };
       });
 
