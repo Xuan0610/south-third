@@ -306,10 +306,10 @@ const usersController = {
       const receiverRepository = dataSource.getRepository('Receiver');
       const findUser = await receiverRepository.findOne({
         select: ['name', 'phone', 'post_code', 'address'],
-        where: { id }
+        where: { id },
       });
       res.status(200).json({
-        data: findUser
+        data: findUser,
       });
     } catch (error) {
       logger.error('取得收件資訊錯誤:', error);
@@ -433,6 +433,72 @@ const usersController = {
       });
     } catch (error) {
       logger.warn('使用者重設密碼錯誤:', error);
+      next(error);
+    }
+  },
+
+  async getCart(req, res, next) {
+    try {
+      const { id } = req.user;
+      const cartRepository = dataSource.getRepository('Cart');
+      const cartLinkProductRepository = dataSource.getRepository('Cart_link_product');
+
+      // 取得該用戶的購物車
+      const cart = await cartRepository.findOne({
+        where: { user_id: id, deleted_at: null },
+      });
+
+      if (!cart) {
+        cart = cartRepository.create({
+          user_id: id,
+        });
+        cart = await cartRepository.save(cart);
+      }
+
+      // 取得該購物車對應的所有 cart_link_product 資料，並帶出 Product 關聯
+      const cartLinkProducts = await cartLinkProductRepository.find({
+        where: { cart_id: cart.id, deleted_at: null },
+        relations: ['Product'],
+      });
+
+      // 你可以用 for 迴圈或 map 處理 cartLinkProducts
+      const result = cartLinkProducts.map(item => ({
+        name: item.Product.name,
+        image_url: item.Product.image_url,
+        price: item.price,
+        quantity: item.quantity,
+        single_total_price: item.price * item.quantity,
+      }));
+
+      // 計算折扣
+      const discountMethod = await dataSource
+        .getRepository('Discount_method')
+        .findOne({ where: { id: cart.discount_id } });
+      let discount = 0;
+
+      if (discountMethod) {
+        if (discountMethod.discount_percent !== 1) {
+          // 使用百分比折扣
+          discount = Math.round(
+            product.price * product.quantity * (1 - discountMethod.discount_percent)
+          );
+        } else if (discountMethod.discount_price !== 0) {
+          // 使用金額折扣
+          discount = discountMethod.discount_price;
+        }
+      }
+
+      res.status(200).json({
+        message: '取得成功',
+        data: {
+          result,
+          total_price: result.reduce((sum, item) => sum + item.single_total_price, 0),
+          discount,
+          final_price: result.reduce((sum, item) => sum + item.single_total_price, 0) - discount,
+        },
+      });
+    } catch (error) {
+      logger.error('取得購物車內容錯誤:', error);
       next(error);
     }
   },
