@@ -459,6 +459,156 @@ const adminController = {
       next(error);
     }
   },
+
+  // 取得所有訂單訊息
+  async getAllOrders(req, res, next) {
+    try {
+      const ordersRepo = dataSource.getRepository('Order');
+      const orders = await ordersRepo.find({
+        order: {
+          created_at: 'DESC',
+        },
+      });
+
+      const ordersResult = orders.map(order => {
+        const createdTime = order.created_at.toISOString().slice(0, 10).replace(/-/g, '');
+        return {
+          created_time: createdTime,
+          is_ship: order.is_ship ? 1 : 0,
+          display_id: order.display_id,
+          is_paid: order.is_paid ? 1 : 0,
+          total_price: order.total_price,
+        };
+      });
+
+      res.status(200).json({
+        message: '取得成功',
+        data: ordersResult,
+      });
+    } catch (error) {
+      logger.error('取得訂單列表錯誤:', error);
+      next(error);
+    }
+  },
+
+  // 取得處理中訂單資訊
+  async getProcessingOrders(req, res, next) {
+    try {
+      const ordersRepo = dataSource.getRepository('Order');
+      const orders = await ordersRepo.find({
+        where: { is_ship: false },
+        order: {
+          created_at: 'DESC',
+        },
+      });
+
+      const ordersResult = orders.map(order => {
+        const createdDay = order.created_at.toISOString().slice(0, 10).replace(/-/g, '');
+        return {
+          created_day: createdDay,
+          is_ship: order.is_ship ? 1 : 0,
+          id: order.id,
+          display_id: order.display_id,
+          is_paid: order.is_paid ? 1 : 0,
+          total_price: order.total_price,
+        };
+      });
+
+      res.status(200).json({
+        message: '取得成功',
+        data: {
+          order: ordersResult,
+        },
+      });
+    } catch (error) {
+      logger.error('取得處理中訂單錯誤:', error);
+      next(error);
+    }
+  },
+
+  // 編輯訂單進度狀態
+  async updateOrderStatus(req, res, next) {
+    try {
+      const { order_id } = req.params;
+      const { is_ship, receiver } = req.body;
+
+      const ordersRepo = dataSource.getRepository('Order');
+      const receiverRepo = dataSource.getRepository('Receiver');
+
+      const order = await ordersRepo.findOne({
+        where: { id: order_id },
+        relations: ['Receiver'],
+      });
+
+      if (!order) {
+        res.status(400).json({
+          message: '查無此訂單',
+        });
+        return;
+      }
+
+      // 更新收件人資訊
+      if (receiver) {
+        const receiverEntity = await receiverRepo.findOne({
+          where: { id: order.receiver_id },
+        });
+
+        if (receiverEntity) {
+          receiverEntity.name = receiver.name;
+          receiverEntity.phone = receiver.phone;
+          receiverEntity.post_code = receiver.post_code;
+          receiverEntity.address = receiver.address;
+          await receiverRepo.save(receiverEntity);
+        }
+      }
+
+      // 更新訂單狀態
+      order.is_ship = is_ship === 1;
+      await ordersRepo.save(order);
+
+      res.status(200).json({
+        message: '更新成功',
+      });
+    } catch (error) {
+      logger.error('更新訂單狀態錯誤:', error);
+      next(error);
+    }
+  },
+
+  // 取得歷史訂單資訊
+  async getOrderHistory(req, res, next) {
+    try {
+      const ordersRepo = dataSource.getRepository('Order');
+      const orders = await ordersRepo.find({
+        where: { is_ship: true },
+        order: {
+          created_at: 'DESC',
+        },
+      });
+
+      const ordersResult = orders.map(order => {
+        const createdDay = order.created_at.toISOString().slice(0, 10).replace(/-/g, '');
+        return {
+          created_day: createdDay,
+          is_ship: order.is_ship ? 1 : 0,
+          id: order.id,
+          display_id: order.display_id,
+          is_paid: order.is_paid ? 1 : 0,
+          total_price: order.total_price,
+        };
+      });
+
+      res.status(200).json({
+        message: '取得成功',
+        data: {
+          order: ordersResult,
+        },
+      });
+    } catch (error) {
+      logger.error('取得歷史訂單錯誤:', error);
+      next(error);
+    }
+  },
 };
 
 module.exports = adminController;
