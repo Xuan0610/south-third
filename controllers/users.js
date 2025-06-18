@@ -502,6 +502,69 @@ const usersController = {
       next(error);
     }
   },
+
+  async addToCart(req, res, next) {
+    try {
+      const userId = req.user.id;
+      const { product_id, quantity } = req.body;
+
+      // 基本欄位檢查
+      if (!product_id || !quantity || quantity <= 0) {
+        return res.status(400).json({ message: '加入購物車發生錯誤' });
+      }
+
+      const cartRepository = dataSource.getRepository('Cart');
+      const productRepository = dataSource.getRepository('Product');
+      const cartLinkProductRepository = dataSource.getRepository('Cart_link_product');
+
+      // 取得或建立購物車
+      let cart = await cartRepository.findOne({
+        where: { user_id: userId, deleted_at: null },
+      });
+      if (!cart) {
+        cart = cartRepository.create({ user_id: userId });
+        cart = await cartRepository.save(cart);
+      }
+
+      // 查詢商品
+      const product = await productRepository.findOne({
+        where: { id: product_id, deleted_at: null },
+      });
+      if (!product) {
+        return res.status(400).json({ message: '查無此商品' });
+      }
+
+      // 檢查庫存
+      if (product.stock < quantity) {
+        return res.status(400).json({ message: '商品庫存不足' });
+      }
+
+      // 查詢購物車內是否已有此商品
+      let cartLinkProduct = await cartLinkProductRepository.findOne({
+        where: { cart_id: cart.id, product_id: product_id, deleted_at: null },
+      });
+
+      if (cartLinkProduct) {
+        // 已有則更新數量
+        cartLinkProduct.quantity += quantity;
+        await cartLinkProductRepository.save(cartLinkProduct);
+      } else {
+        // 沒有則新增
+        cartLinkProduct = cartLinkProductRepository.create({
+          cart_id: cart.id,
+          product_id,
+          quantity,
+          price: product.price,
+        });
+        await cartLinkProductRepository.save(cartLinkProduct);
+      }
+
+      return res.status(200).json({ message: '新增成功' });
+    } catch (error) {
+      logger.error('加入購物車發生錯誤:', error);
+      next(error);
+    }
+  },
 };
 
 module.exports = usersController;

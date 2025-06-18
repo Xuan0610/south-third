@@ -18,6 +18,7 @@ router.get('/membership/profile', auth, handleErrorAsync(usersController.getProf
 router.put('/membership/profile', auth, handleErrorAsync(usersController.putProfile));
 router.get('/membership/receiver', auth, handleErrorAsync(usersController.getReceiver));
 router.get('/membership/cart', auth, handleErrorAsync(usersController.getCart));
+router.post('/membership/cart', auth, handleErrorAsync(usersController.addToCart));
 router.patch('/forget', limiter, handleErrorAsync(usersController.patchForget));
 router.patch('/reset-password', handleErrorAsync(usersController.patchResetPassword));
 
