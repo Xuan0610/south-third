@@ -165,6 +165,7 @@ const usersController = {
           token,
           user: {
             name: existingUser.name,
+            role: existingUser.role,
           },
         },
       });
@@ -306,10 +307,10 @@ const usersController = {
       const receiverRepository = dataSource.getRepository('Receiver');
       const findUser = await receiverRepository.findOne({
         select: ['name', 'phone', 'post_code', 'address'],
-        where: { id }
+        where: { id },
       });
       res.status(200).json({
-        data: findUser
+        data: findUser,
       });
     } catch (error) {
       logger.error('取得收件資訊錯誤:', error);
