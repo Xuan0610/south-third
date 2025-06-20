@@ -850,6 +850,44 @@ const usersController = {
       next(error);
     }
   },
+
+  async getDiscount(req, res, next) {
+    const { discount_kol } = req.body;
+    const { id } = req.user;
+    const discountRepo = dataSource.getRepository('Discount_method');
+    const existDiscount = await discountRepo.findOne({
+      where: { discount_kol },
+    });
+
+    if (!existDiscount) {
+      res.status(400).json({
+        message: '優惠碼錯誤',
+      });
+      return;
+    }
+
+    const cartInfo = await dataSource.getRepository('Cart').findOne({
+      where: { id },
+      relations: ['Cart_link_product', 'Cart_link_product.Product'],
+    });
+
+    // 計算購物車總價：quantity * price 的加總
+    const totalPrice = cartInfo.Cart_link_product.reduce((sum, cartItem) => {
+      return sum + cartItem.quantity * cartItem.price;
+    }, 0);
+
+    let result = 0;
+    if (existDiscount.discount_percent !== 1) {
+      result = totalPrice - existDiscount.discount_percent * totalPrice;
+    } else if (existDiscount.discount_price !== 0) {
+      result = existDiscount.discount_price;
+    }
+
+    res.status(200).json({
+      message: '輸入優惠碼成功',
+      data: result,
+    });
+  },
 };
 
 module.exports = usersController;

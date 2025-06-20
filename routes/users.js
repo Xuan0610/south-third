@@ -25,5 +25,6 @@ router.post('/membership/order', auth, handleErrorAsync(usersController.postCrea
 router.get('/membership/orders', auth, handleErrorAsync(usersController.getUserOrders));
 router.put('/checkout', auth, handleErrorAsync(usersController.putCheckout));
 router.get('/membership/:order_id', auth, handleErrorAsync(usersController.getUserOrderDetail));
+router.get('/discount', auth, handleErrorAsync(usersController.getDiscount));
 
 module.exports = router;
