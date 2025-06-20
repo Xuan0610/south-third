@@ -550,6 +550,119 @@ const usersController = {
       next(error);
     }
   },
+
+  async postCreateOrder(req, res, next) {
+    const { receiver: receiverData } = req.body;
+    const { id } = req.user;
+
+    if (!receiverData) {
+      return res.status(400).json({ message: '收件人資訊為必填' });
+    }
+
+    const queryRunner = dataSource.createQueryRunner(); // 處理資料庫交易重要功能，涉及多張table，要嘛全部成功，要嘛全部失敗
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const cartRepo = queryRunner.manager.getRepository('Cart');
+      const cart = await cartRepo.findOne({
+        where: { user_id: id },
+        relations: ['Cart_link_product', 'Cart_link_product.Product', 'Discount_method'],
+      });
+
+      if (!cart || !cart.Cart_link_product || cart.Cart_link_product.length === 0) {
+        throw new Error('購物車是空的');
+      }
+
+      const productRepo = queryRunner.manager.getRepository('Product');
+      for (const item of cart.Cart_link_product) {
+        const product = item.Product;
+        if (product.stock < item.quantity) {
+          throw new Error(
+            `商品 "${product.name}" 庫存不足 (剩餘 ${product.stock} 件)，無法建立訂單`
+          ); // 這邊如果出現異常就會終止程序進到 catch(error)
+        }
+        product.stock -= item.quantity;
+      }
+
+      const shipping_fee = 80;
+      let products_total = 0;
+      cart.Cart_link_product.forEach(item => {
+        products_total += item.price * item.quantity;
+      });
+
+      let discount_amount = 0;
+      if (cart.Discount_method) {
+        if (cart.Discount_method.discount_price > 0) {
+          discount_amount = cart.Discount_method.discount_price;
+        } else if (cart.Discount_method.discount_percent < 1) {
+          discount_amount = Math.round(
+            products_total * (1 - cart.Discount_method.discount_percent)
+          );
+        }
+      }
+      const grand_total = products_total + shipping_fee - discount_amount;
+
+      const receiverRepo = queryRunner.manager.getRepository('Receiver');
+      const newReceiver = receiverRepo.create(receiverData);
+      await receiverRepo.save(newReceiver);
+
+      const orderRepo = queryRunner.manager.getRepository('Order');
+      const now = new Date();
+      const display_id = `${now.getFullYear()}${(now.getMonth() + 1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}${now.getHours().toString().padStart(2, '0')}${now.getMinutes().toString().padStart(2, '0')}${now.getSeconds().toString().padStart(2, '0')}`;
+
+      const newOrder = orderRepo.create({
+        display_id,
+        user_id: id,
+        receiver_id: newReceiver.id,
+        is_paid: false,
+        shipping_fee,
+        total_price: grand_total,
+        discount_id: cart.discount_id,
+        // 此階段不設定 payment_method_id
+        is_ship: false,
+      });
+      await orderRepo.save(newOrder);
+
+      const orderLinkProductRepo = queryRunner.manager.getRepository('Order_link_product');
+      const orderItems = cart.Cart_link_product.map(item =>
+        orderLinkProductRepo.create({
+          order_id: newOrder.id,
+          product_id: item.product_id,
+          quantity: item.quantity,
+          price: item.price,
+        })
+      );
+      await orderLinkProductRepo.save(orderItems);
+
+      const updatedProducts = cart.Cart_link_product.map(item => item.Product);
+      await productRepo.save(updatedProducts);
+
+      const cartLinkProductRepo = queryRunner.manager.getRepository('Cart_link_product');
+      await cartLinkProductRepo.delete({ cart_id: cart.id });
+      cart.discount_id = null;
+      await cartRepo.save(cart);
+
+      // 提交交易
+      await queryRunner.commitTransaction();
+
+      res.status(201).json({
+        message: '訂單建立成功',
+        data: {
+          order_id: newOrder.id,
+          display_id: newOrder.display_id,
+        },
+      });
+    } catch (error) {
+      // 如果出錯，回滾交易
+      await queryRunner.rollbackTransaction();
+      logger.error('建立訂單失敗:', error);
+      next(error);
+    } finally {
+      // 釋放 queryRunner
+      await queryRunner.release();
+    }
+  },
 };
 
 module.exports = usersController;
