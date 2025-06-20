@@ -165,6 +165,7 @@ const usersController = {
           token,
           user: {
             name: existingUser.name,
+            role: existingUser.role,
           },
         },
       });
