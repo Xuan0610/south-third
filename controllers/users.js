@@ -888,6 +888,82 @@ const usersController = {
       data: result,
     });
   },
+
+  async getOrderReview(req, res, next) {
+    try {
+      const { id } = req.user;
+      const shipping_fee = 80; // 固定運費
+
+      const cartRepo = dataSource.getRepository('Cart');
+      const userRepo = dataSource.getRepository('User');
+
+      const cartPromise = cartRepo.findOne({
+        where: { user_id: id },
+        relations: ['Cart_link_product', 'Cart_link_product.Product', 'Discount_method'],
+      });
+
+      const userPromise = userRepo.findOne({
+        where: { id },
+        relations: ['Receiver'],
+      });
+
+      const [cart, user] = await Promise.all([cartPromise, userPromise]);
+
+      if (!cart || !cart.Cart_link_product || cart.Cart_link_product.length === 0) {
+        return res.status(400).json({ message: '購物車是空的' });
+      }
+
+      // 從 user 物件中取得 receiver
+      const receiver = user ? user.Receiver : null;
+
+      let totalPrice = 0;
+      const orderItems = cart.Cart_link_product.map(item => {
+        const subtotal = item.quantity * item.price;
+        totalPrice += subtotal;
+        return {
+          product_id: item.product_id,
+          name: item.Product.name,
+          price: item.price,
+          quantity: item.quantity,
+          subtotal: subtotal,
+        };
+      });
+
+      let discount_amount = 0;
+      if (cart.Discount_method) {
+        if (cart.Discount_method.discount_price > 0) {
+          discount_amount = cart.Discount_method.discount_price;
+        } else if (cart.Discount_method.discount_percent < 1) {
+          discount_amount = Math.round(totalPrice * (1 - cart.Discount_method.discount_percent));
+        }
+      }
+
+      const grand_total = totalPrice + shipping_fee - discount_amount;
+
+      const result = {
+        orderItems,
+        receiver: {
+          name: receiver.name,
+          phone: receiver.phone,
+          address: `${receiver.post_code} ${receiver.address}`,
+        },
+        cost_summary: {
+          totalPrice,
+          shipping_fee,
+          discount_amount,
+          grand_total,
+        },
+      };
+
+      res.status(200).json({
+        message: '取得訂單預覽成功',
+        data: result,
+      });
+    } catch (error) {
+      logger.error('取得訂單預覽資訊錯誤:', error);
+      next(error);
+    }
+  },
 };
 
 module.exports = usersController;
