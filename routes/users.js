@@ -19,5 +19,6 @@ router.put('/membership/profile', auth, handleErrorAsync(usersController.putProf
 router.get('/membership/receiver', auth, handleErrorAsync(usersController.getReceiver));
 router.patch('/forget', limiter, handleErrorAsync(usersController.patchForget));
 router.patch('/reset-password', handleErrorAsync(usersController.patchResetPassword));
+router.get('/discount', auth, handleErrorAsync(usersController.getDiscount));
 
 module.exports = router;
