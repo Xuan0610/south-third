@@ -438,65 +438,70 @@ const usersController = {
     }
   },
 
-
   async getCart(req, res, next) {
     try {
       const { id } = req.user;
       const cartRepository = dataSource.getRepository('Cart');
-      const cartLinkProductRepository = dataSource.getRepository('Cart_link_product');
 
-      // 取得該用戶的購物車
+      // 1. 尋找使用者的購物車
       const cart = await cartRepository.findOne({
-        where: { user_id: id, deleted_at: null },
+        where: { user_id: id, deleted_at: IsNull() },
+        relations: ['Cart_link_product', 'Cart_link_product.Product', 'Discount_method'],
       });
 
-      if (!cart) {
-        cart = cartRepository.create({
-          user_id: id,
+      if (!cart || !cart.Cart_link_product || cart.Cart_link_product.length === 0) {
+        return res.status(200).json({
+          message: '購物車是空的',
+          data: {
+            items: [],
+            total_price: 0,
+            discount: 0,
+            final_price: 0,
+          },
         });
-        cart = await cartRepository.save(cart);
       }
 
-      // 取得該購物車對應的所有 cart_link_product 資料，並帶出 Product 關聯
-      const cartLinkProducts = await cartLinkProductRepository.find({
-        where: { cart_id: cart.id, deleted_at: null },
-        relations: ['Product'],
+      // 3. 整理購物車項目並計算商品總價
+      let total_price = 0;
+      const items = cart.Cart_link_product.map(item => {
+        const single_total_price = item.price * item.quantity;
+        total_price += single_total_price;
+        return {
+          name: item.Product.name,
+          image_url: item.Product.image_url,
+          price: item.price,
+          quantity: item.quantity,
+          single_total_price,
+        };
       });
 
-      // 你可以用 for 迴圈或 map 處理 cartLinkProducts
-      const result = cartLinkProducts.map(item => ({
-        name: item.Product.name,
-        image_url: item.Product.image_url,
-        price: item.price,
-        quantity: item.quantity,
-        single_total_price: item.price * item.quantity,
-      }));
-
-      // 計算折扣
-      const discountMethod = await dataSource
-        .getRepository('Discount_method')
-        .findOne({ where: { id: cart.discount_id } });
+      // 4. 計算折扣金額
       let discount = 0;
-
+      const discountMethod = cart.Discount_method;
       if (discountMethod) {
-        if (discountMethod.discount_percent !== 1) {
-          // 使用百分比折扣
-          discount = Math.round(
-            product.price * product.quantity * (1 - discountMethod.discount_percent)
-          );
-        } else if (discountMethod.discount_price !== 0) {
-          // 使用金額折扣
+        if (discountMethod.discount_percent < 1) {
+          // 使用百分比折扣 (應該是折扣掉的部分)
+          discount = Math.round(total_price * (1 - discountMethod.discount_percent));
+        } else if (discountMethod.discount_price > 0) {
+          // 使用固定金額折扣
           discount = discountMethod.discount_price;
         }
       }
 
+      // 確保折扣金額不大於商品總價
+      if (discount > total_price) {
+        discount = total_price;
+      }
+
+      const final_price = total_price - discount;
+
       res.status(200).json({
         message: '取得成功',
         data: {
-          result,
-          total_price: result.reduce((sum, item) => sum + item.single_total_price, 0),
+          items,
+          total_price,
           discount,
-          final_price: result.reduce((sum, item) => sum + item.single_total_price, 0) - discount,
+          final_price,
         },
       });
     } catch (error) {
@@ -564,7 +569,8 @@ const usersController = {
       return res.status(200).json({ message: '新增成功' });
     } catch (error) {
       logger.error('加入購物車發生錯誤:', error);
-
+    }
+  },
 
   async getDiscount(req, res, next) {
     const { discount_kol } = req.body;
