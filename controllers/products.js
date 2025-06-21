@@ -9,7 +9,7 @@ const productsController = {
   async getProducts(req, res, next) {
     try {
       const { page, classification } = req.query;
-      const perPage = 8;
+      const perPage = 6;
       const pageNum = Number(page);
 
       if (isNotValidInteger(pageNum) || isNaN(pageNum) || pageNum < 1) {
@@ -20,18 +20,12 @@ const productsController = {
         return;
       }
 
-      const queryOptions = {
-        relations: ['Product_detail'],
-        take: perPage,
-        skip: perPage * (pageNum - 1),
-        where: {},
-      };
-
       const classificationRepo = dataSource.getRepository('Classification');
+      let classificationCondition = {};
 
       if (classification) {
         const findClassification = await classificationRepo.findOne({
-          where: { id: classification },
+          where: { name: classification },
         });
 
         if (isNotValidString(classification) || !findClassification) {
@@ -42,22 +36,27 @@ const productsController = {
           return;
         }
 
-        queryOptions.where = {
+        classificationCondition = {
           Product_detail: {
-            classification_id: classification,
+            classification_id: findClassification.id,
           },
         };
       }
 
       const productRepo = dataSource.getRepository('Product');
-      const findProduct = await productRepo.find(queryOptions);
+      const [products, totalCount] = await productRepo.findAndCount({
+        relations: ['Product_detail'],
+        where: classificationCondition,
+        take: perPage,
+        skip: perPage * (pageNum - 1),
+      });
 
-      const productResult = findProduct.map(products => ({
-        id: products.id,
-        name: products.name,
-        image_url: products.image_url,
-        feature: products.Product_detail.feature,
-        price: products.price,
+      const productResult = products.map(product => ({
+        id: product.id,
+        name: product.name,
+        image_url: product.image_url,
+        feature: product.Product_detail.feature,
+        price: product.price,
       }));
 
       const allClassifications = await classificationRepo.find({
@@ -68,6 +67,7 @@ const productsController = {
         message: '成功',
         data: {
           products: productResult,
+          total: totalCount,
           classification: allClassifications,
         },
       });
@@ -80,11 +80,11 @@ const productsController = {
   // 取得單一商品詳細資訊
   async getProductId(req, res, next) {
     try {
-      const { products_id } = req.params;
+      const { product_id } = req.params;
       const productRepo = dataSource.getRepository('Product');
 
       const findProduct = await productRepo.findOne({
-        where: { id: products_id },
+        where: { id: product_id },
         relations: ['Product_detail', 'Product_detail.Classification'],
       });
 
@@ -97,8 +97,17 @@ const productsController = {
       }
 
       const { id, name, image_url, stock, price, Product_detail } = findProduct;
-      const { origin, feature, variety, process_method, acidity, flavor, aftertaste, description } =
-        Product_detail;
+      const {
+        origin,
+        feature,
+        variety,
+        process_method,
+        acidity,
+        flavor,
+        aftertaste,
+        description,
+        Classification,
+      } = Product_detail;
 
       const result = {
         id,
