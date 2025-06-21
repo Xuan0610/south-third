@@ -438,6 +438,7 @@ const usersController = {
     }
   },
 
+
   async getDiscount(req, res, next) {
     const { discount_kol } = req.body;
     const { id } = req.user;
@@ -664,6 +665,7 @@ const usersController = {
       await queryRunner.release();
     }
   },
+
   async getUserOrders(req, res, next) {
     try {
       const { id } = req.user;
