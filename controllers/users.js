@@ -560,6 +560,70 @@ const usersController = {
       next(error);
     }
   },
+
+  async putCheckout(req, res, next) {
+    try {
+      const { id, payment_method_id } = req.body;
+      const { id: user_id } = req.user;
+
+      if (isUndefined(payment_method_id) || isNotValidString(payment_method_id)) {
+        res.status(400).json({
+          message: '為選擇付款方式',
+        });
+        return;
+      }
+
+      if (payment_method_id !== '貨到付款') {
+        res.status(400).json({
+          message: '金流交易維護中，請選擇貨到付款',
+        });
+        return;
+      }
+
+      const orderRepo = dataSource.getRepository('Order');
+      const findOrder = await orderRepo.findOne({
+        where: {
+          id,
+          user_id,
+        },
+      });
+
+      if (!findOrder) {
+        res.status(400).json({
+          message: '查無此訂單',
+        });
+        return;
+      }
+
+      if (findOrder.is_paid) {
+        return res.status(400).json({
+          message: '此訂單已付款，無法重複結帳',
+        });
+      }
+
+      // 目前暫時只接受 '貨到付款' 作為一個範例
+      if (payment_method_id !== 1) {
+        // 先假設 1 是 '貨到付款' 的 ID
+        return res.status(400).json({
+          message: '金流交易維護中，請選擇貨到付款',
+        });
+      }
+
+      findOrder.payment_method_id = payment_method_id;
+
+      const result = await orderRepo.save('Order');
+
+      res.status(200).json({
+        message: '結帳成功',
+        data: {
+          order_id: result.id,
+        },
+      });
+    } catch (error) {
+      logger.error('結帳過程失敗:', error);
+      next(error);
+    }
+  },
 };
 
 module.exports = usersController;
