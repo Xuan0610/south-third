@@ -716,6 +716,40 @@ const adminController = {
       });
     } catch (error) {
       logger.error('伺服器錯誤:', error);
+    }
+  },
+    
+  async postPaymentMethod(req, res, next) {
+    try {
+      const { payment_method } = req.body;
+
+      if (isNotValidString(payment_method)) {
+        return res.status(400).json({ message: '欄位為填寫正確' });
+      }
+
+      if (payment_method.length > 10) {
+        return res.status(400).json({ message: '付款方式名稱長度不可超過 10 個字元' });
+      }
+
+      const paymentMethodRepo = dataSource.getRepository('Payment_method');
+
+      const existingMethod = await paymentMethodRepo.findOne({
+        where: { payment_method },
+      });
+
+      if (existingMethod) {
+        return res.status(409).json({ message: '此付款方式已存在' });
+      }
+
+      const newMethod = paymentMethodRepo.create({ payment_method });
+      const result = await paymentMethodRepo.save(newMethod);
+
+      res.status(201).json({
+        message: '新增付款方式成功',
+        data: result,
+      });
+    } catch (error) {
+      logger.error('新增付款方式失敗:', error);
       next(error);
     }
   },
