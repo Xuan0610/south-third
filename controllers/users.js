@@ -439,6 +439,133 @@ const usersController = {
   },
 
 
+  async getCart(req, res, next) {
+    try {
+      const { id } = req.user;
+      const cartRepository = dataSource.getRepository('Cart');
+      const cartLinkProductRepository = dataSource.getRepository('Cart_link_product');
+
+      // 取得該用戶的購物車
+      const cart = await cartRepository.findOne({
+        where: { user_id: id, deleted_at: null },
+      });
+
+      if (!cart) {
+        cart = cartRepository.create({
+          user_id: id,
+        });
+        cart = await cartRepository.save(cart);
+      }
+
+      // 取得該購物車對應的所有 cart_link_product 資料，並帶出 Product 關聯
+      const cartLinkProducts = await cartLinkProductRepository.find({
+        where: { cart_id: cart.id, deleted_at: null },
+        relations: ['Product'],
+      });
+
+      // 你可以用 for 迴圈或 map 處理 cartLinkProducts
+      const result = cartLinkProducts.map(item => ({
+        name: item.Product.name,
+        image_url: item.Product.image_url,
+        price: item.price,
+        quantity: item.quantity,
+        single_total_price: item.price * item.quantity,
+      }));
+
+      // 計算折扣
+      const discountMethod = await dataSource
+        .getRepository('Discount_method')
+        .findOne({ where: { id: cart.discount_id } });
+      let discount = 0;
+
+      if (discountMethod) {
+        if (discountMethod.discount_percent !== 1) {
+          // 使用百分比折扣
+          discount = Math.round(
+            product.price * product.quantity * (1 - discountMethod.discount_percent)
+          );
+        } else if (discountMethod.discount_price !== 0) {
+          // 使用金額折扣
+          discount = discountMethod.discount_price;
+        }
+      }
+
+      res.status(200).json({
+        message: '取得成功',
+        data: {
+          result,
+          total_price: result.reduce((sum, item) => sum + item.single_total_price, 0),
+          discount,
+          final_price: result.reduce((sum, item) => sum + item.single_total_price, 0) - discount,
+        },
+      });
+    } catch (error) {
+      logger.error('取得購物車內容錯誤:', error);
+      next(error);
+    }
+  },
+
+  async addToCart(req, res, next) {
+    try {
+      const userId = req.user.id;
+      const { product_id, quantity } = req.body;
+
+      // 基本欄位檢查
+      if (!product_id || !quantity || quantity <= 0) {
+        return res.status(400).json({ message: '加入購物車發生錯誤' });
+      }
+
+      const cartRepository = dataSource.getRepository('Cart');
+      const productRepository = dataSource.getRepository('Product');
+      const cartLinkProductRepository = dataSource.getRepository('Cart_link_product');
+
+      // 取得或建立購物車
+      let cart = await cartRepository.findOne({
+        where: { user_id: userId, deleted_at: null },
+      });
+      if (!cart) {
+        cart = cartRepository.create({ user_id: userId });
+        cart = await cartRepository.save(cart);
+      }
+
+      // 查詢商品
+      const product = await productRepository.findOne({
+        where: { id: product_id, deleted_at: null },
+      });
+      if (!product) {
+        return res.status(400).json({ message: '查無此商品' });
+      }
+
+      // 檢查庫存
+      if (product.stock < quantity) {
+        return res.status(400).json({ message: '商品庫存不足' });
+      }
+
+      // 查詢購物車內是否已有此商品
+      let cartLinkProduct = await cartLinkProductRepository.findOne({
+        where: { cart_id: cart.id, product_id: product_id, deleted_at: null },
+      });
+
+      if (cartLinkProduct) {
+        // 已有則更新數量
+        cartLinkProduct.quantity += quantity;
+        await cartLinkProductRepository.save(cartLinkProduct);
+      } else {
+        // 沒有則新增
+        cartLinkProduct = cartLinkProductRepository.create({
+          cart_id: cart.id,
+          product_id,
+          quantity,
+          price: product.price,
+        });
+        await cartLinkProductRepository.save(cartLinkProduct);
+      }
+
+      return res.status(200).json({ message: '新增成功' });
+    } catch (error) {
+      logger.error('加入購物車發生錯誤:', error);
+
+
   async getDiscount(req, res, next) {
     const { discount_kol } = req.body;
     const { id } = req.user;
@@ -849,6 +976,7 @@ const usersController = {
       });
     } catch (error) {
       logger.error('結帳過程失敗:', error);
+
       next(error);
     }
   },
