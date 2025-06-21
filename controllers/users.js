@@ -563,17 +563,17 @@ const usersController = {
 
   async putCheckout(req, res, next) {
     try {
-      const { id, payment_method_id } = req.body;
+      const { display_id, payment_method_id } = req.body;
       const { id: user_id } = req.user;
 
-      if (isUndefined(payment_method_id) || isNotValidString(payment_method_id)) {
+      if (isUndefined(payment_method_id) || isNotValidInteger(payment_method_id)) {
         res.status(400).json({
-          message: '為選擇付款方式',
+          message: '請選擇付款方式',
         });
         return;
       }
 
-      if (payment_method_id !== '貨到付款') {
+      if (payment_method_id !== 1) {
         res.status(400).json({
           message: '金流交易維護中，請選擇貨到付款',
         });
@@ -583,7 +583,7 @@ const usersController = {
       const orderRepo = dataSource.getRepository('Order');
       const findOrder = await orderRepo.findOne({
         where: {
-          id,
+          display_id,
           user_id,
         },
       });
@@ -616,7 +616,7 @@ const usersController = {
       res.status(200).json({
         message: '結帳成功',
         data: {
-          order_id: result.id,
+          display_id: result.display_id,
         },
       });
     } catch (error) {
