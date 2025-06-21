@@ -520,6 +520,57 @@ const adminController = {
       next(error);
     }
   },
+
+  async postDiscount(req, res, next) {
+    try {
+      const { discount_kol, discount_percent, discount_price } = req.body;
+
+      if (isUndefined(discount_kol) || isNotValidString(discount_kol)) {
+        res.status(400).json({
+          message: '優惠碼格式錯誤',
+        });
+        return;
+      }
+
+      if (!isUndefined(discount_percent) && !isUndefined(discount_price)) {
+        res.status(400).json({
+          message: '折扣類型重複',
+        });
+        return;
+      }
+
+      const discountRepo = dataSource.getRepository('Discount_method');
+      const existDiscount = await discountRepo.findOne({ where: { discount_kol } });
+
+      if (existDiscount) {
+        res.status(400).json({
+          message: '優惠碼重複',
+        });
+        return;
+      }
+
+      const newDiscount = discountRepo.create({
+        discount_kol,
+        discount_percent: isUndefined(discount_percent) ? 1 : discount_percent,
+        discount_price: isUndefined(discount_price) ? 0 : discount_price,
+      });
+
+      const result = await discountRepo.save(newDiscount);
+
+      res.status(201).json({
+        message: '新增成功',
+        data: {
+          id: result.id,
+          discount_kol: result.discount_kol,
+          discount_percent: result.discount_percent,
+          discount_price: result.discount_price,
+        },
+      });
+    } catch (error) {
+      logger.error('伺服器錯誤:', error);
+      next(error);
+    }
+  },
 };
 
 module.exports = adminController;
