@@ -165,6 +165,7 @@ const usersController = {
           token,
           user: {
             name: existingUser.name,
+            role: existingUser.role,
           },
         },
       });
@@ -437,6 +438,7 @@ const usersController = {
     }
   },
 
+
   async getCart(req, res, next) {
     try {
       const { id } = req.user;
@@ -562,6 +564,419 @@ const usersController = {
       return res.status(200).json({ message: '新增成功' });
     } catch (error) {
       logger.error('加入購物車發生錯誤:', error);
+
+
+  async getDiscount(req, res, next) {
+    const { discount_kol } = req.body;
+    const { id } = req.user;
+    const discountRepo = dataSource.getRepository('Discount_method');
+    const existDiscount = await discountRepo.findOne({
+      where: { discount_kol },
+    });
+
+    if (!existDiscount) {
+      res.status(400).json({
+        message: '優惠碼錯誤',
+      });
+      return;
+    }
+
+    const cartInfo = await dataSource.getRepository('Cart').findOne({
+      where: { id },
+      relations: ['Cart_link_product', 'Cart_link_product.Product'],
+    });
+
+    // 計算購物車總價：quantity * price 的加總
+    const totalPrice = cartInfo.Cart_link_product.reduce((sum, cartItem) => {
+      return sum + cartItem.quantity * cartItem.price;
+    }, 0);
+
+    let result = 0;
+    if (existDiscount.discount_percent !== 1) {
+      result = totalPrice - existDiscount.discount_percent * totalPrice;
+    } else if (existDiscount.discount_price !== 0) {
+      result = existDiscount.discount_price;
+    }
+
+    res.status(200).json({
+      message: '輸入優惠碼成功',
+      data: result,
+    });
+  },
+
+  async getOrderReview(req, res, next) {
+    try {
+      const { id } = req.user;
+      const shipping_fee = 80; // 固定運費
+
+      const cartRepo = dataSource.getRepository('Cart');
+      const userRepo = dataSource.getRepository('User');
+
+      const cartPromise = cartRepo.findOne({
+        where: { user_id: id },
+        relations: ['Cart_link_product', 'Cart_link_product.Product', 'Discount_method'],
+      });
+
+      const userPromise = userRepo.findOne({
+        where: { id },
+        relations: ['Receiver'],
+      });
+
+      const [cart, user] = await Promise.all([cartPromise, userPromise]);
+
+      if (!cart || !cart.Cart_link_product || cart.Cart_link_product.length === 0) {
+        return res.status(400).json({ message: '購物車是空的' });
+      }
+
+      // 從 user 物件中取得 receiver
+      const receiver = user ? user.Receiver : null;
+
+      let totalPrice = 0;
+      const orderItems = cart.Cart_link_product.map(item => {
+        const subtotal = item.quantity * item.price;
+        totalPrice += subtotal;
+        return {
+          product_id: item.product_id,
+          name: item.Product.name,
+          price: item.price,
+          quantity: item.quantity,
+          subtotal: subtotal,
+        };
+      });
+
+      let discount_amount = 0;
+      if (cart.Discount_method) {
+        if (cart.Discount_method.discount_price > 0) {
+          discount_amount = cart.Discount_method.discount_price;
+        } else if (cart.Discount_method.discount_percent < 1) {
+          discount_amount = Math.round(totalPrice * (1 - cart.Discount_method.discount_percent));
+        }
+      }
+
+      const grand_total = totalPrice + shipping_fee - discount_amount;
+
+      const result = {
+        orderItems,
+        receiver: {
+          name: receiver.name,
+          phone: receiver.phone,
+          address: `${receiver.post_code} ${receiver.address}`,
+        },
+        cost_summary: {
+          totalPrice,
+          shipping_fee,
+          discount_amount,
+          grand_total,
+        },
+      };
+
+      res.status(200).json({
+        message: '取得訂單預覽成功',
+        data: result,
+      });
+    } catch (error) {
+      logger.error('取得訂單預覽資訊錯誤:', error);
+      next(error);
+    }
+  },
+
+  async postCreateOrder(req, res, next) {
+    const { receiver: receiverData } = req.body;
+    const { id } = req.user;
+
+    if (!receiverData) {
+      return res.status(400).json({ message: '收件人資訊為必填' });
+    }
+
+    const queryRunner = dataSource.createQueryRunner(); // 處理資料庫交易重要功能，涉及多張table，要嘛全部成功，要嘛全部失敗
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const cartRepo = queryRunner.manager.getRepository('Cart');
+      const cart = await cartRepo.findOne({
+        where: { user_id: id },
+        relations: ['Cart_link_product', 'Cart_link_product.Product', 'Discount_method'],
+      });
+
+      if (!cart || !cart.Cart_link_product || cart.Cart_link_product.length === 0) {
+        throw new Error('購物車是空的');
+      }
+
+      const productRepo = queryRunner.manager.getRepository('Product');
+      for (const item of cart.Cart_link_product) {
+        const product = item.Product;
+        if (product.stock < item.quantity) {
+          throw new Error(
+            `商品 "${product.name}" 庫存不足 (剩餘 ${product.stock} 件)，無法建立訂單`
+          ); // 這邊如果出現異常就會終止程序進到 catch(error)
+        }
+        product.stock -= item.quantity;
+      }
+
+      const shipping_fee = 80;
+      let products_total = 0;
+      cart.Cart_link_product.forEach(item => {
+        products_total += item.price * item.quantity;
+      });
+
+      let discount_amount = 0;
+      if (cart.Discount_method) {
+        if (cart.Discount_method.discount_price > 0) {
+          discount_amount = cart.Discount_method.discount_price;
+        } else if (cart.Discount_method.discount_percent < 1) {
+          discount_amount = Math.round(
+            products_total * (1 - cart.Discount_method.discount_percent)
+          );
+        }
+      }
+      const grand_total = products_total + shipping_fee - discount_amount;
+
+      const receiverRepo = queryRunner.manager.getRepository('Receiver');
+      const newReceiver = receiverRepo.create(receiverData);
+      await receiverRepo.save(newReceiver);
+
+      const orderRepo = queryRunner.manager.getRepository('Order');
+      const now = new Date();
+      const display_id = `${now.getFullYear()}${(now.getMonth() + 1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}${now.getHours().toString().padStart(2, '0')}${now.getMinutes().toString().padStart(2, '0')}${now.getSeconds().toString().padStart(2, '0')}`;
+
+      const newOrder = orderRepo.create({
+        display_id,
+        user_id: id,
+        receiver_id: newReceiver.id,
+        is_paid: false,
+        shipping_fee,
+        total_price: grand_total,
+        discount_id: cart.discount_id,
+        // 此階段不設定 payment_method_id
+        is_ship: false,
+      });
+      await orderRepo.save(newOrder);
+
+      const orderLinkProductRepo = queryRunner.manager.getRepository('Order_link_product');
+      const orderItems = cart.Cart_link_product.map(item =>
+        orderLinkProductRepo.create({
+          order_id: newOrder.id,
+          product_id: item.product_id,
+          quantity: item.quantity,
+          price: item.price,
+        })
+      );
+      await orderLinkProductRepo.save(orderItems);
+
+      const updatedProducts = cart.Cart_link_product.map(item => item.Product);
+      await productRepo.save(updatedProducts);
+
+      const cartLinkProductRepo = queryRunner.manager.getRepository('Cart_link_product');
+      await cartLinkProductRepo.delete({ cart_id: cart.id });
+      cart.discount_id = null;
+      await cartRepo.save(cart);
+
+      // 提交交易
+      await queryRunner.commitTransaction();
+
+      res.status(201).json({
+        message: '訂單建立成功',
+        data: {
+          order_id: newOrder.id,
+          display_id: newOrder.display_id,
+        },
+      });
+    } catch (error) {
+      // 如果出錯，回滾交易
+      await queryRunner.rollbackTransaction();
+      logger.error('建立訂單失敗:', error);
+      next(error);
+    } finally {
+      // 釋放 queryRunner
+      await queryRunner.release();
+    }
+  },
+
+  async getUserOrders(req, res, next) {
+    try {
+      const { id } = req.user;
+      const { page } = req.query;
+      const perPage = 10;
+      const pageNum = page ? Number(page) : 1;
+
+      if (isNaN(pageNum) || pageNum < 1 || !Number.isInteger(pageNum)) {
+        logger.warn('查無此頁數');
+        res.status(400).json({
+          message: '查無此頁數',
+        });
+        return;
+      }
+
+      const ordersRepo = dataSource.getRepository('Order');
+      const orders = await ordersRepo.find({
+        where: { user_id: id },
+        relations: ['order_link_product', 'order_link_product.product'],
+        take: perPage,
+        skip: perPage * (pageNum - 1),
+        order: {
+          created_at: 'DESC',
+        },
+      });
+
+      const ordersResult = orders.map(order => {
+        // 格式化日期為 YYYYMMDD
+        const createdDay = order.created_at.toISOString().slice(0, 10).replace(/-/g, '');
+
+        // 取得第一個商品名稱作為代表
+        const firstProduct = order.order_link_product[0]?.product;
+
+        return {
+          created_at: createdDay,
+          display_id: order.display_id,
+          product_name: firstProduct ? firstProduct.name : '無商品',
+          total_price: order.total_price,
+          is_paid: order.is_paid ? 1 : 0,
+          is_ship: order.is_ship ? 1 : 0,
+        };
+      });
+
+      res.status(200).json({
+        message: '取得成功',
+        data: ordersResult,
+      });
+    } catch (error) {
+      logger.error('伺服器錯誤', error);
+      next(error);
+    }
+  },
+
+  // 取得用戶單一訂單詳細資訊
+  async getUserOrderDetail(req, res, next) {
+    try {
+      const { id } = req.user;
+      const { order_id } = req.params;
+
+      const ordersRepo = dataSource.getRepository('Order');
+      const order = await ordersRepo.findOne({
+        where: { user_id: id, order_id },
+        relations: [
+          'order_link_product',
+          'order_link_product.product',
+          'order_link_product.product.Product_detail',
+          'user',
+          'discount',
+        ],
+      });
+
+      if (!order) {
+        logger.warn('查無此訂單');
+        res.status(400).json({
+          message: '查無此訂單',
+        });
+        return;
+      }
+
+      // 格式化日期為 YYYYMMDD
+      const createdDay = order.created_at.toISOString().slice(0, 10).replace(/-/g, '');
+
+      const orderDetail = {
+        id: order.id,
+        display_id: order.display_id,
+        created_day: createdDay,
+        user_id: order.user_id,
+        receiver: {
+          name: order.receiver_name,
+          phone: order.receiver_phone,
+          post_code: order.receiver_post_code,
+          address: order.receiver_address,
+        },
+        items: order.order_link_product.map(item => ({
+          name: item.product.name,
+          price: item.price,
+          quantity: item.quantity,
+          subtotal: item.price * item.quantity,
+        })),
+        summary: {
+          discount_kol: order.discount?.kol_code || null,
+          product_total: order.order_link_product.reduce(
+            (sum, item) => sum + item.price * item.quantity,
+            0
+          ),
+          shipping_fee: order.shipping_fee,
+          subtotal: order.total_price,
+          discount: order.discount_amount || 0,
+          grand_total: order.final_price,
+        },
+        created_at: order.created_at.toISOString(),
+      };
+
+      res.status(200).json({
+        message: '成功',
+        data: orderDetail,
+      });
+    } catch (error) {
+      logger.error('伺服器錯誤', error);
+      next(error);
+    }
+  },
+
+  async putCheckout(req, res, next) {
+    try {
+      const { id, payment_method_id } = req.body;
+      const { id: user_id } = req.user;
+
+      if (isUndefined(payment_method_id) || isNotValidString(payment_method_id)) {
+        res.status(400).json({
+          message: '為選擇付款方式',
+        });
+        return;
+      }
+
+      if (payment_method_id !== '貨到付款') {
+        res.status(400).json({
+          message: '金流交易維護中，請選擇貨到付款',
+        });
+        return;
+      }
+
+      const orderRepo = dataSource.getRepository('Order');
+      const findOrder = await orderRepo.findOne({
+        where: {
+          id,
+          user_id,
+        },
+      });
+
+      if (!findOrder) {
+        res.status(400).json({
+          message: '查無此訂單',
+        });
+        return;
+      }
+
+      if (findOrder.is_paid) {
+        return res.status(400).json({
+          message: '此訂單已付款，無法重複結帳',
+        });
+      }
+
+      // 目前暫時只接受 '貨到付款' 作為一個範例
+      if (payment_method_id !== 1) {
+        // 先假設 1 是 '貨到付款' 的 ID
+        return res.status(400).json({
+          message: '金流交易維護中，請選擇貨到付款',
+        });
+      }
+
+      findOrder.payment_method_id = payment_method_id;
+
+      const result = await orderRepo.save('Order');
+
+      res.status(200).json({
+        message: '結帳成功',
+        data: {
+          order_id: result.id,
+        },
+      });
+    } catch (error) {
+      logger.error('結帳過程失敗:', error);
+
       next(error);
     }
   },
