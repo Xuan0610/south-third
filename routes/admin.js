@@ -20,9 +20,10 @@ router.post('/product_detail', auth, isAdmin, handleErrorAsync(adminController.p
 router.post('/products', auth, isAdmin, handleErrorAsync(adminController.postProduct));
 router.get('/:product_id', auth, isAdmin, handleErrorAsync(adminController.getProductId));
 router.put('/:product_id', auth, isAdmin, handleErrorAsync(adminController.putProductId));
+router.post('/payment-method', auth, isAdmin, handleErrorAsync(adminController.postPaymentMethod));
 router.get('/orders', auth, isAdmin, handleErrorAsync(adminController.getAllOrders));
 router.get('/orders/process', auth, isAdmin, handleErrorAsync(adminController.getProcessingOrders));
-router.patch('/orders/:order_id',  auth,  isAdmin,  handleErrorAsync(adminController.updateOrderStatus));
 router.get('/orders/history', auth, isAdmin, handleErrorAsync(adminController.getOrderHistory));
+router.patch('/orders/:order_id', auth, isAdmin, handleErrorAsync(adminController.updateOrderStatus));
 
 module.exports = router;
