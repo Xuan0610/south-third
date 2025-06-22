@@ -666,7 +666,8 @@ const usersController = {
         receiver: {
           name: receiver.name,
           phone: receiver.phone,
-          address: `${receiver.post_code} ${receiver.address}`,
+          post_code: receiver.post_code,
+          address: receiver.address,
         },
         cost_summary: {
           totalPrice,
