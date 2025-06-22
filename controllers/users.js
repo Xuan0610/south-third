@@ -638,6 +638,11 @@ const usersController = {
       // 從 user 物件中取得 receiver
       const receiver = user ? user.Receiver : null;
 
+      // 檢查收件人資訊是否完整
+      if (!receiver || !receiver.name || !receiver.phone || !receiver.address) {
+        return res.status(400).json({ message: '收件人資訊不完整，請先填寫收件人資訊' });
+      }
+      
       let totalPrice = 0;
       const orderItems = cart.Cart_link_product.map(item => {
         const subtotal = item.quantity * item.price;
