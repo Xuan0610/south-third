@@ -16,21 +16,21 @@ module.exports = new EntitySchema({
     },
     discount_id: {
       type: 'smallint',
-      nullable: true
+      nullable: true,
     },
     created_at: {
       type: 'timestamptz',
       createDate: true,
-      nullable: false
+      nullable: false,
     },
     updated_at: {
       type: 'timestamptz',
       updateDate: true,
-      nullable: false
+      nullable: false,
     },
     deleted_at: {
       type: 'timestamptz',
-      nullable: true
+      nullable: true,
     },
   },
   relations: {
@@ -41,7 +41,7 @@ module.exports = new EntitySchema({
         name: 'discount_id',
         referencedColumnName: 'id',
         foreignKeyConstraintName: 'cart_discount_id_fk',
-      }
+      },
     },
     User: {
       type: 'one-to-one',
@@ -49,8 +49,13 @@ module.exports = new EntitySchema({
       joinColumn: {
         name: 'user_id',
         referencedColumnName: 'id',
-        foreignKeyConstraintName: 'cart_user_id_fk'
-      }
-    }
-  }
+        foreignKeyConstraintName: 'cart_user_id_fk',
+      },
+    },
+    Cart_link_product: {
+      type: 'one-to-many',
+      target: 'Cart_link_product',
+      inverseSide: 'Cart',
+    },
+  },
 });

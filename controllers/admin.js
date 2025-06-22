@@ -216,6 +216,7 @@ const adminController = {
         is_enable: product.is_enable,
         detail: {
           origin: product.Product_detail.origin,
+          name: product.Product_detail.name,
           feature: product.Product_detail.feature,
           variety: product.Product_detail.variety,
           process_method: product.Product_detail.process_method,
@@ -475,6 +476,7 @@ const adminController = {
         const createdTime = order.created_at.toISOString().slice(0, 10).replace(/-/g, '');
         return {
           created_time: createdTime,
+
           display_id: order.display_id,
           is_ship: order.is_ship ? 1 : 0,
           is_paid: order.is_paid ? 1 : 0,
@@ -549,8 +551,8 @@ const adminController = {
       res.status(200).json({
         message: '取得成功',
         data: {
-          unshippedCount,
-          shippedThisMonthCount,
+          unshipped_count: unshippedCount,
+          shipped_this_month_count: shippedThisMonthCount,
         },
       });
     } catch (error) {
@@ -799,6 +801,7 @@ const adminController = {
       next(error);
     }
   },
+
 };
 
 module.exports = adminController;

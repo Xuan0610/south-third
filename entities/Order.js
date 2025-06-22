@@ -39,11 +39,11 @@ module.exports = new EntitySchema({
     },
     shipping_fee: {
       type: 'integer',
-      nullable: false
+      nullable: false,
     },
     total_price: {
       type: 'integer',
-      nullable: false
+      nullable: false,
     },
     payment_method_id: {
       type: 'smallint',
@@ -54,12 +54,12 @@ module.exports = new EntitySchema({
     created_at: {
       type: 'timestamptz',
       createDate: true,
-      nullable: false
+      nullable: false,
     },
     updated_at: {
       type: 'timestamptz',
       updateDate: true,
-      nullable: false
+      nullable: false,
     },
   },
   relations: {
@@ -70,7 +70,7 @@ module.exports = new EntitySchema({
         name: 'user_id',
         referencedColumnName: 'id',
         foreignKeyConstraintName: 'order_user_id_fk',
-      }
+      },
     },
     Receiver: {
       type: 'many-to-one',
@@ -79,7 +79,7 @@ module.exports = new EntitySchema({
         name: 'receiver_id',
         referencedColumnName: 'id',
         foreignKeyConstraintName: 'order_receiver_id_fk',
-      }
+      },
     },
     Discount_method: {
       type: 'many-to-one',
@@ -88,7 +88,7 @@ module.exports = new EntitySchema({
         name: 'discount_id',
         referencedColumnName: 'id',
         foreignKeyConstraintName: 'order_discount_id_fk',
-      }
+      },
     },
     Payment_method: {
       type: 'many-to-one',
@@ -97,7 +97,7 @@ module.exports = new EntitySchema({
         name: 'payment_method_id',
         referencedColumnName: 'id',
         foreignKeyConstraintName: 'order_payment_id_fk',
-      }
-    }
+      },
+    },
   },
 });

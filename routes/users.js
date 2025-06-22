@@ -17,7 +17,18 @@ router.post('/login', handleErrorAsync(usersController.postLogin));
 router.get('/membership/profile', auth, handleErrorAsync(usersController.getProfile));
 router.put('/membership/profile', auth, handleErrorAsync(usersController.putProfile));
 router.get('/membership/receiver', auth, handleErrorAsync(usersController.getReceiver));
+router.post('/membership/receiver', auth, handleErrorAsync(usersController.postReceiver));
+router.get('/membership/cart', auth, handleErrorAsync(usersController.getCart));
+router.post('/membership/cart', auth, handleErrorAsync(usersController.addToCart));
 router.patch('/forget', limiter, handleErrorAsync(usersController.patchForget));
 router.patch('/reset-password', handleErrorAsync(usersController.patchResetPassword));
+router.get('/orderReview', auth, handleErrorAsync(usersController.getOrderReview));
+router.post('/membership/order', auth, handleErrorAsync(usersController.postCreateOrder));
+router.get('/membership/orders', auth, handleErrorAsync(usersController.getUserOrders));
+router.get('/checkout', auth, handleErrorAsync(usersController.getCheckout));
+router.put('/checkout', auth, handleErrorAsync(usersController.putCheckout));
+router.get('/discount', auth, handleErrorAsync(usersController.getDiscount));
+router.get('/orderReview', auth, handleErrorAsync(usersController.getOrderReview));
+router.get('/membership/:order_id', auth, handleErrorAsync(usersController.getUserOrderDetail));
 
 module.exports = router;
