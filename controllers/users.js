@@ -986,6 +986,87 @@ const usersController = {
       next(error);
     }
   },
+
+  async postReceiver(req, res, next) {
+    try {
+      const { id } = req.user;
+      const { name, phone, post_code, address } = req.body;
+      if (
+        isUndefined(name) ||
+        isUndefined(phone) ||
+        isUndefined(post_code) ||
+        isUndefined(address)
+      ) {
+        res.status(400).json({
+          message: '欄位為填寫正確',
+        });
+        return;
+      }
+
+      if (isNotValidName(name)) {
+        res.status(400).json({
+          message: '收件者姓名格式錯誤',
+        });
+        return;
+      }
+
+      if (isNotValidTaiwanMobile(phone)) {
+        res.status(400).json({
+          message: '手機號碼不符合規則，需為台灣手機號碼',
+        });
+        return;
+      }
+
+      if (isNotValidTaiwanAddressAdvanced(address)) {
+        res.status(400).json({
+          message: '地址格式或郵遞區號錯誤，需為台灣地址',
+        });
+        return;
+      }
+
+      const userRepo = dataSource.getRepository('User');
+      const receiverRepo = dataSource.getRepository('Receiver');
+
+      const findUser = await userRepo.findOne({
+        where: { id },
+        relations: ['Receiver'],
+      });
+      if (findUser.Receiver) {
+        findUser.Receiver.name = name;
+        findUser.Receiver.phone = phone;
+        findUser.Receiver.post_code = post_code;
+        findUser.Receiver.address = address;
+
+        await receiverRepo.save(findUser.Receiver);
+
+        res.status(200).json({
+          message: '收件人資訊更新成功',
+          data: findUser.Receiver,
+        });
+      } else {
+        console.log('未偵測到舊資料，執行新增...');
+        const newReceiver = receiverRepo.create({
+          name,
+          phone,
+          post_code,
+          address,
+        });
+
+        const savedReceiver = await receiverRepo.save(newReceiver);
+
+        findUser.receiver_id = savedReceiver.id;
+        await userRepo.save(findUser);
+
+        res.status(201).json({
+          message: '收件人資訊新增成功',
+          data: savedReceiver,
+        });
+      }
+    } catch (error) {
+      logger.error('處理收件人資訊失敗:', error);
+      next(error);
+    }
+  },
 };
 
 module.exports = usersController;
