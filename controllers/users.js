@@ -442,51 +442,64 @@ const usersController = {
     try {
       const { id } = req.user;
       const cartRepository = dataSource.getRepository('Cart');
+
+      // 1. 尋找使用者的購物車
       const cart = await cartRepository.findOne({
-        where: { user_id: id, order_id: IsNull() },
-        relations: ['Cart_link_product.Product'],
+        where: { user_id: id, deleted_at: IsNull() },
+        relations: ['Cart_link_product', 'Cart_link_product.Product', 'Discount_method'],
       });
 
-      if (!cart) {
-        logger.warn(`使用者 ${id} 查無此購物車`);
+      if (!cart || !cart.Cart_link_product || cart.Cart_link_product.length === 0) {
         return res.status(200).json({
+          message: '購物車是空的',
           data: {
-            cart: [],
+            items: [],
+            total_price: 0,
+            discount: 0,
+            final_price: 0,
           },
         });
       }
 
-      if (!cart.Cart_link_product || cart.Cart_link_product.length === 0) {
-        logger.warn(`使用者 ${id} 的購物車是空的`);
-        return res.status(200).json({
-          data: {
-            cart: [],
-          },
-        });
-      }
-
-      const cartItems = cart.Cart_link_product.map(item => ({
-        ...item,
-        product: {
-          id: item.Product.id,
+      // 3. 整理購物車項目並計算商品總價
+      let total_price = 0;
+      const items = cart.Cart_link_product.map(item => {
+        const single_total_price = item.price * item.quantity;
+        total_price += single_total_price;
+        return {
+          product_id: item.Product.id,
           name: item.Product.name,
           image_url: item.Product.image_url,
           price: item.price,
           quantity: item.quantity,
-          single_total_price: item.price * item.quantity,
-        },
-      }));
+          single_total_price,
+        };
+      });
 
-      const total_price = cartItems.reduce((acc, item) => acc + item.single_total_price, 0);
+      // 4. 計算折扣金額
+      let discount = 0;
+      const discountMethod = cart.Discount_method;
+      if (discountMethod) {
+        if (discountMethod.discount_percent < 1) {
+          // 使用百分比折扣 (應該是折扣掉的部分)
+          discount = Math.round(total_price * (1 - discountMethod.discount_percent));
+        } else if (discountMethod.discount_price > 0) {
+          // 使用固定金額折扣
+          discount = discountMethod.discount_price;
+        }
+      }
 
-      // TODO: 這裡的折扣邏輯可能需要後續確認
-      const discount = 0;
+      // 確保折扣金額不大於商品總價
+      if (discount > total_price) {
+        discount = total_price;
+      }
+
       const final_price = total_price - discount;
 
       res.status(200).json({
-        message: '取得購物車內容成功',
+        message: '取得成功',
         data: {
-          cart: cartItems,
+          items,
           total_price,
           discount,
           final_price,
@@ -576,9 +589,16 @@ const usersController = {
     }
 
     const cartInfo = await dataSource.getRepository('Cart').findOne({
-      where: { id },
+      where: { user_id: id },
       relations: ['Cart_link_product', 'Cart_link_product.Product'],
     });
+
+    if (!cartInfo || !cartInfo.Cart_link_product || cartInfo.Cart_link_product.length === 0) {
+      res.status(400).json({
+        message: '您的購物車是空的，無法套用優惠券',
+      });
+      return;
+    }
 
     // 計算購物車總價：quantity * price 的加總
     const totalPrice = cartInfo.Cart_link_product.reduce((sum, cartItem) => {
@@ -586,15 +606,23 @@ const usersController = {
     }, 0);
 
     let result = 0;
-    if (existDiscount.discount_percent !== 1) {
-      result = totalPrice - existDiscount.discount_percent * totalPrice;
-    } else if (existDiscount.discount_price > 0) {
-      result = existDiscount.discount_price;
+    // TypeORM/node-postgres 會將 numeric/decimal 類型回傳為字串，需要轉換
+    const discountPercent = parseFloat(existDiscount.discount_percent);
+    const discountPrice = parseInt(existDiscount.discount_price, 10);
+
+    if (discountPercent < 1.0) {
+      // 計算折扣金額 (例如 20% off 是 1 - 0.8)
+      result = totalPrice * (1 - discountPercent);
+    } else if (discountPrice > 0) {
+      result = discountPrice;
     }
+
+    // 折扣金額不能超過商品總額
+    result = Math.min(totalPrice, result);
 
     res.status(200).json({
       message: '輸入優惠碼成功',
-      data: result,
+      data: Math.round(result), // 回傳四捨五入後的整數
     });
   },
 
