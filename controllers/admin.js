@@ -466,6 +466,7 @@ const adminController = {
     try {
       const ordersRepo = dataSource.getRepository('Order');
       const orders = await ordersRepo.find({
+        relations: ['user'],
         order: {
           created_at: 'DESC',
         },
@@ -475,10 +476,12 @@ const adminController = {
         const createdTime = order.created_at.toISOString().slice(0, 10).replace(/-/g, '');
         return {
           created_time: createdTime,
-          is_ship: order.is_ship ? 1 : 0,
+
           display_id: order.display_id,
+          is_ship: order.is_ship ? 1 : 0,
           is_paid: order.is_paid ? 1 : 0,
           total_price: order.total_price,
+          user_email: order.user.email,
         };
       });
 
@@ -497,6 +500,7 @@ const adminController = {
     try {
       const ordersRepo = dataSource.getRepository('Order');
       const orders = await ordersRepo.find({
+        relations: ['user'],
         where: { is_ship: false },
         order: {
           created_at: 'DESC',
@@ -512,6 +516,7 @@ const adminController = {
           display_id: order.display_id,
           is_paid: order.is_paid ? 1 : 0,
           total_price: order.total_price,
+          user_email: order.user.email,
         };
       });
 
@@ -610,6 +615,7 @@ const adminController = {
     try {
       const ordersRepo = dataSource.getRepository('Order');
       const orders = await ordersRepo.find({
+        relations: ['user'],
         where: { is_ship: true },
         order: {
           created_at: 'DESC',
@@ -625,6 +631,7 @@ const adminController = {
           display_id: order.display_id,
           is_paid: order.is_paid ? 1 : 0,
           total_price: order.total_price,
+          user_email: order.user.email,
         };
       });
 
@@ -718,7 +725,7 @@ const adminController = {
       logger.error('伺服器錯誤:', error);
     }
   },
-    
+
   async postPaymentMethod(req, res, next) {
     try {
       const { payment_method } = req.body;
@@ -753,6 +760,48 @@ const adminController = {
       next(error);
     }
   },
+
+  async getNewOrders(req, res, next) {
+    try {
+      const ordersRepo = dataSource.getRepository('Order');
+      const orders = await ordersRepo.find({
+        relations: ['user', 'order_link_product', 'order_link_product.product'],
+        order: {
+          created_at: 'DESC',
+        },
+        take: 5,
+      });
+
+      const ordersResult = orders.map(order => {
+        const createdTime = order.created_at.toISOString().slice(0, 10).replace(/-/g, '');
+
+        // 找出最早加入的商品
+        const firstProduct = order.order_link_product.sort(
+          (a, b) => new Date(a.created_at) - new Date(b.created_at)
+        )[0];
+
+        return {
+          created_time: createdTime,
+          display_id: order.display_id,
+          is_ship: order.is_ship ? 1 : 0,
+          id: order.id,
+          is_paid: order.is_paid ? 1 : 0,
+          total_price: order.total_price,
+          user_email: order.user.email,
+          first_product_name: firstProduct.product.name,
+        };
+      });
+
+      res.status(200).json({
+        message: '取得成功',
+        data: ordersResult,
+      });
+    } catch (error) {
+      logger.error('取得新訂單錯誤:', error);
+      next(error);
+    }
+  },
+
 };
 
 module.exports = adminController;
