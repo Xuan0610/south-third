@@ -20,7 +20,13 @@ router.post('/product_detail', auth, isAdmin, handleErrorAsync(adminController.p
 router.post('/products', auth, isAdmin, handleErrorAsync(adminController.postProduct));
 router.get('/orders/is_ship', auth, isAdmin, handleErrorAsync(adminController.getIsShip));
 router.get('/orders/revenue', auth, isAdmin, handleErrorAsync(adminController.getRevenue));
+router.get('/orders/process', auth, isAdmin, handleErrorAsync(adminController.getProcessingOrders));
+router.get('/orders/new', auth, isAdmin, handleErrorAsync(adminController.getNewOrders));
+router.get('/orders/history', auth, isAdmin, handleErrorAsync(adminController.getOrderHistory));
 router.post('/discount', auth, isAdmin, handleErrorAsync(adminController.postDiscount));
+router.post('/payment-method', auth, isAdmin, handleErrorAsync(adminController.postPaymentMethod));
+router.get('/orders', auth, isAdmin, handleErrorAsync(adminController.getAllOrders));
+router.patch('/orders/:order_id', auth, isAdmin, handleErrorAsync(adminController.updateOrderStatus));
 router.get('/:product_id', auth, isAdmin, handleErrorAsync(adminController.getProductId));
 router.put('/:product_id', auth, isAdmin, handleErrorAsync(adminController.putProductId));
 
