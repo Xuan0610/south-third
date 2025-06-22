@@ -467,6 +467,7 @@ const usersController = {
         const single_total_price = item.price * item.quantity;
         total_price += single_total_price;
         return {
+          product_id: item.Product.id,
           name: item.Product.name,
           image_url: item.Product.image_url,
           price: item.price,
@@ -600,7 +601,7 @@ const usersController = {
     let result = 0;
     if (existDiscount.discount_percent !== 1) {
       result = totalPrice - existDiscount.discount_percent * totalPrice;
-    } else if (existDiscount.discount_price !== 0) {
+    } else if (existDiscount.discount_price > 0) {
       result = existDiscount.discount_price;
     }
 
@@ -641,7 +642,7 @@ const usersController = {
       if (!receiver || !receiver.name || !receiver.phone || !receiver.address) {
         return res.status(400).json({ message: '收件人資訊不完整，請先填寫收件人資訊' });
       }
-
+      
       let totalPrice = 0;
       const orderItems = cart.Cart_link_product.map(item => {
         const subtotal = item.quantity * item.price;
