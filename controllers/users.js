@@ -467,6 +467,7 @@ const usersController = {
         const single_total_price = item.price * item.quantity;
         total_price += single_total_price;
         return {
+          product_id: item.Product.id,
           name: item.Product.name,
           image_url: item.Product.image_url,
           price: item.price,
