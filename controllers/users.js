@@ -669,7 +669,7 @@ const usersController = {
 
       const result = {
         orderItems,
-        receiver: {
+        receiver: receiver && {
           name: receiver.name,
           phone: receiver.phone,
           post_code: receiver.post_code,
