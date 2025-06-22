@@ -687,14 +687,38 @@ const usersController = {
   },
 
   async postCreateOrder(req, res, next) {
-    const { receiver: receiverData } = req.body;
+    const { name, phone, post_code, address } = req.body;
     const { id } = req.user;
 
-    if (!receiverData) {
-      return res.status(400).json({ message: '收件人資訊為必填' });
+    if (isUndefined(name) || isUndefined(phone) || isUndefined(post_code) || isUndefined(address)) {
+      res.status(400).json({
+        message: '欄位未填寫正確',
+      });
+      return;
     }
 
-    const queryRunner = dataSource.createQueryRunner(); // 處理資料庫交易重要功能，涉及多張table，要嘛全部成功，要嘛全部失敗
+    if (isNotValidName(name)) {
+      res.status(400).json({
+        message: '收件者姓名格式錯誤',
+      });
+      return;
+    }
+
+    if (isNotValidTaiwanMobile(phone)) {
+      res.status(400).json({
+        message: '手機號碼不符合規則，需為台灣手機號碼',
+      });
+      return;
+    }
+
+    if (isNotValidTaiwanAddressAdvanced(address)) {
+      res.status(400).json({
+        message: '地址格式或郵遞區號錯誤，需為台灣地址',
+      });
+      return;
+    }
+
+    const queryRunner = dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
@@ -715,7 +739,7 @@ const usersController = {
         if (product.stock < item.quantity) {
           throw new Error(
             `商品 "${product.name}" 庫存不足 (剩餘 ${product.stock} 件)，無法建立訂單`
-          ); // 這邊如果出現異常就會終止程序進到 catch(error)
+          );
         }
         product.stock -= item.quantity;
       }
@@ -739,7 +763,12 @@ const usersController = {
       const grand_total = products_total + shipping_fee - discount_amount;
 
       const receiverRepo = queryRunner.manager.getRepository('Receiver');
-      const newReceiver = receiverRepo.create(receiverData);
+      const newReceiver = receiverRepo.create({
+        name,
+        phone,
+        post_code,
+        address,
+      });
       await receiverRepo.save(newReceiver);
 
       const orderRepo = queryRunner.manager.getRepository('Order');
@@ -778,7 +807,6 @@ const usersController = {
       cart.discount_id = null;
       await cartRepo.save(cart);
 
-      // 提交交易
       await queryRunner.commitTransaction();
 
       res.status(201).json({
@@ -789,12 +817,18 @@ const usersController = {
         },
       });
     } catch (error) {
-      // 如果出錯，回滾交易
       await queryRunner.rollbackTransaction();
       logger.error('建立訂單失敗:', error);
+
+      if (error.message.includes('庫存不足')) {
+        res.status(400).json({
+          message: error.message,
+        });
+        return;
+      }
+
       next(error);
     } finally {
-      // 釋放 queryRunner
       await queryRunner.release();
     }
   },
@@ -998,7 +1032,7 @@ const usersController = {
         isUndefined(address)
       ) {
         res.status(400).json({
-          message: '欄位為填寫正確',
+          message: '欄位未填寫正確',
         });
         return;
       }
