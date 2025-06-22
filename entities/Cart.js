@@ -18,6 +18,10 @@ module.exports = new EntitySchema({
       type: 'smallint',
       nullable: true,
     },
+    order_id: {
+      type: 'uuid',
+      nullable: true,
+    },
     created_at: {
       type: 'timestamptz',
       createDate: true,
@@ -56,6 +60,15 @@ module.exports = new EntitySchema({
       type: 'one-to-many',
       target: 'Cart_link_product',
       inverseSide: 'Cart',
+    },
+    Order: {
+      type: 'one-to-one',
+      target: 'Order',
+      joinColumn: {
+        name: 'order_id',
+        referencedColumnName: 'id',
+        foreignKeyConstraintName: 'cart_order_id_fk',
+      },
     },
   },
 });
