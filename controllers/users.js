@@ -1038,7 +1038,7 @@ const usersController = {
 
       findOrder.payment_method_id = payment_method_id;
 
-      const result = await orderRepo.save('Order');
+      const result = await orderRepo.save(findOrder);
 
       res.status(200).json({
         message: '結帳成功',
@@ -1048,7 +1048,6 @@ const usersController = {
       });
     } catch (error) {
       logger.error('結帳過程失敗:', error);
-
       next(error);
     }
   },
