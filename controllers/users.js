@@ -762,14 +762,39 @@ const usersController = {
       }
       const grand_total = products_total + shipping_fee - discount_amount;
 
-      const receiverRepo = queryRunner.manager.getRepository('Receiver');
-      const newReceiver = receiverRepo.create({
-        name,
-        phone,
-        post_code,
-        address,
+      // 檢查用戶是否已有收件人資訊
+      const userRepo = queryRunner.manager.getRepository('User');
+      const user = await userRepo.findOne({
+        where: { id },
+        relations: ['Receiver'],
       });
-      await receiverRepo.save(newReceiver);
+
+      let receiver_id;
+      const receiverRepo = queryRunner.manager.getRepository('Receiver');
+
+      if (user.Receiver) {
+        // 更新現有的收件人資訊
+        user.Receiver.name = name;
+        user.Receiver.phone = phone;
+        user.Receiver.post_code = post_code;
+        user.Receiver.address = address;
+        const updatedReceiver = await receiverRepo.save(user.Receiver);
+        receiver_id = updatedReceiver.id;
+      } else {
+        // 建立新的收件人資訊
+        const newReceiver = receiverRepo.create({
+          name,
+          phone,
+          post_code,
+          address,
+        });
+        const savedReceiver = await receiverRepo.save(newReceiver);
+
+        // 更新用戶的 receiver_id
+        user.receiver_id = savedReceiver.id;
+        await userRepo.save(user);
+        receiver_id = savedReceiver.id;
+      }
 
       const orderRepo = queryRunner.manager.getRepository('Order');
       const now = new Date();
@@ -778,7 +803,7 @@ const usersController = {
       const newOrder = orderRepo.create({
         display_id,
         user_id: id,
-        receiver_id: newReceiver.id,
+        receiver_id,
         is_paid: false,
         shipping_fee,
         total_price: grand_total,
