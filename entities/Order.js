@@ -30,12 +30,15 @@ module.exports = new EntitySchema({
     receipt: {
       type: 'varchar',
       length: 10,
+      nullable: true,
     },
     paid_at: {
       type: 'timestamptz',
+      nullable: true,
     },
     discount_id: {
       type: 'smallint',
+      nullable: true,
     },
     shipping_fee: {
       type: 'integer',
@@ -47,6 +50,7 @@ module.exports = new EntitySchema({
     },
     payment_method_id: {
       type: 'smallint',
+      nullable: true,
     },
     is_ship: {
       type: 'boolean',
