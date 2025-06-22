@@ -1,5 +1,5 @@
 const bcrypt = require('bcrypt');
-const { IsNull, In } = require('typeorm');
+const { IsNull, In, Between } = require('typeorm');
 
 const config = require('../config/index');
 const { dataSource } = require('../db/data-source');
@@ -195,7 +195,7 @@ const adminController = {
     }
   },
 
-  // 取得個別商品資訊(Product entity)
+  // 取得單一商品資訊(Product entity)
   async getProductId(req, res, next) {
     try {
       const { id } = req.params;
@@ -216,6 +216,7 @@ const adminController = {
         is_enable: product.is_enable,
         detail: {
           origin: product.Product_detail.origin,
+          name: product.Product_detail.name,
           feature: product.Product_detail.feature,
           variety: product.Product_detail.variety,
           process_method: product.Product_detail.process_method,
@@ -237,7 +238,7 @@ const adminController = {
     }
   },
 
-  // 新增個別商品資訊(Product entity)
+  // 修改商品資訊(Product entity)
   async putProductId(req, res, next) {
     try {
       const { id, name, product_detail_id, origin_price, price, stock, image_url, is_enable } =
@@ -516,12 +517,41 @@ const adminController = {
 
       res.status(200).json({
         message: '取得成功',
-        data: {
-          order: ordersResult,
-        },
+        data: ordersResult,
       });
     } catch (error) {
       logger.error('取得處理中訂單錯誤:', error);
+      next(error);
+    }
+  },
+  async getIsShip(req, res, next) {
+    try {
+      const orderRepo = dataSource.getRepository('Order');
+
+      const unshippedCount = await orderRepo.count({
+        where: { is_ship: false },
+      });
+
+      const now = new Date();
+      const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+
+      const shippedThisMonthCount = await orderRepo.count({
+        where: {
+          is_ship: true,
+          created_at: Between(firstDayOfMonth, lastDayOfMonth),
+        },
+      });
+
+      res.status(200).json({
+        message: '取得成功',
+        data: {
+          unshipped_count: unshippedCount,
+          shipped_this_month_count: shippedThisMonthCount,
+        },
+      });
+    } catch (error) {
+      logger.error('取得出貨統計錯誤:', error);
       next(error);
     }
   },
@@ -606,6 +636,120 @@ const adminController = {
       });
     } catch (error) {
       logger.error('取得歷史訂單錯誤:', error);
+      next(error);
+    }
+  },
+
+  async getRevenue(req, res, next) {
+    try {
+      const orderRepo = dataSource.getRepository('Order');
+
+      const now = new Date();
+      const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+
+      const orders = await orderRepo.find({
+        where: {
+          is_paid: true,
+          created_at: Between(firstDayOfMonth, lastDayOfMonth),
+        },
+      });
+
+      const revenue = orders.reduce((sum, order) => sum + (order.total_price || 0), 0);
+
+      res.status(200).json({
+        message: '本月營業額統計成功',
+        data: {
+          revenue,
+        },
+      });
+    } catch (error) {
+      logger.error('取得本月營業額錯誤:', error);
+      next(error);
+    }
+  },
+
+  async postDiscount(req, res, next) {
+    try {
+      const { discount_kol, discount_percent, discount_price } = req.body;
+
+      if (isUndefined(discount_kol) || isNotValidString(discount_kol)) {
+        res.status(400).json({
+          message: '優惠碼格式錯誤',
+        });
+        return;
+      }
+
+      if (!isUndefined(discount_percent) && !isUndefined(discount_price)) {
+        res.status(400).json({
+          message: '折扣類型重複',
+        });
+        return;
+      }
+
+      const discountRepo = dataSource.getRepository('Discount_method');
+      const existDiscount = await discountRepo.findOne({ where: { discount_kol } });
+
+      if (existDiscount) {
+        res.status(400).json({
+          message: '優惠碼重複',
+        });
+        return;
+      }
+
+      const newDiscount = discountRepo.create({
+        discount_kol,
+        discount_percent: isUndefined(discount_percent) ? 1 : discount_percent,
+        discount_price: isUndefined(discount_price) ? 0 : discount_price,
+      });
+
+      const result = await discountRepo.save(newDiscount);
+
+      res.status(201).json({
+        message: '新增成功',
+        data: {
+          id: result.id,
+          discount_kol: result.discount_kol,
+          discount_percent: result.discount_percent,
+          discount_price: result.discount_price,
+        },
+      });
+    } catch (error) {
+      logger.error('伺服器錯誤:', error);
+    }
+  },
+    
+  async postPaymentMethod(req, res, next) {
+    try {
+      const { payment_method } = req.body;
+
+      if (isNotValidString(payment_method)) {
+        return res.status(400).json({ message: '欄位為填寫正確' });
+      }
+
+      if (payment_method.length > 10) {
+        return res.status(400).json({ message: '付款方式名稱長度不可超過 10 個字元' });
+      }
+
+      const paymentMethodRepo = dataSource.getRepository('Payment_method');
+
+      const existingMethod = await paymentMethodRepo.findOne({
+        where: { payment_method },
+      });
+
+      if (existingMethod) {
+        return res.status(409).json({ message: '此付款方式已存在' });
+      }
+
+      const newMethod = paymentMethodRepo.create({ payment_method });
+      const result = await paymentMethodRepo.save(newMethod);
+
+      res.status(201).json({
+        message: '新增付款方式成功',
+        data: result,
+      });
+    } catch (error) {
+      logger.error('新增付款方式失敗:', error);
       next(error);
     }
   },
