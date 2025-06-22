@@ -1067,6 +1067,58 @@ const usersController = {
       next(error);
     }
   },
+
+  async getCheckout(req, res, next) {
+    try {
+      const { id: user_id } = req.user;
+      const { order_id } = req.query;
+
+      if (!order_id) {
+        res.status(400).json({
+          message: '缺少訂單編號',
+        });
+        return;
+      }
+
+      const orderRepo = dataSource.getRepository('Order');
+
+      const order = await orderRepo.findOne({
+        where: {
+          id: order_id,
+          user_id: user_id,
+        },
+        relations: ['Receiver'],
+      });
+
+      if (!order) {
+        return res.status(400).json({ message: '找不到此訂單' });
+      }
+
+      if (!order.Receiver) {
+        return res.status(400).json({ message: '找不到此訂單的收件人資訊' });
+      }
+
+      const checkoutData = {
+        order: {
+          display_id: order.display_id,
+          total_price: order.total_price,
+        },
+        receiver: {
+          name: order.Receiver.name,
+          phone: order.Receiver.phone,
+          address: `${order.Receiver.post_code} ${order.Receiver.address}`,
+        },
+      };
+
+      res.status(200).json({
+        message: '取得結帳資訊成功',
+        data: checkoutData,
+      });
+    } catch (error) {
+      logger.error('取得結帳資訊失敗:', error);
+      next(error);
+    }
+  },
 };
 
 module.exports = usersController;
