@@ -591,9 +591,16 @@ const usersController = {
     }
 
     const cartInfo = await dataSource.getRepository('Cart').findOne({
-      where: { id },
+      where: { user_id: id },
       relations: ['Cart_link_product', 'Cart_link_product.Product'],
     });
+
+    if (!cartInfo || !cartInfo.Cart_link_product || cartInfo.Cart_link_product.length === 0) {
+      res.status(400).json({
+        message: '您的購物車是空的，無法套用優惠券',
+      });
+      return;
+    }
 
     // 計算購物車總價：quantity * price 的加總
     const totalPrice = cartInfo.Cart_link_product.reduce((sum, cartItem) => {
@@ -601,15 +608,23 @@ const usersController = {
     }, 0);
 
     let result = 0;
-    if (existDiscount.discount_percent !== 1) {
-      result = totalPrice - existDiscount.discount_percent * totalPrice;
-    } else if (existDiscount.discount_price > 0) {
-      result = existDiscount.discount_price;
+    // TypeORM/node-postgres 會將 numeric/decimal 類型回傳為字串，需要轉換
+    const discountPercent = parseFloat(existDiscount.discount_percent);
+    const discountPrice = parseInt(existDiscount.discount_price, 10);
+
+    if (discountPercent < 1.0) {
+      // 計算折扣金額 (例如 20% off 是 1 - 0.8)
+      result = totalPrice * (1 - discountPercent);
+    } else if (discountPrice > 0) {
+      result = discountPrice;
     }
+
+    // 折扣金額不能超過商品總額
+    result = Math.min(totalPrice, result);
 
     res.status(200).json({
       message: '輸入優惠碼成功',
-      data: result,
+      data: Math.round(result), // 回傳四捨五入後的整數
     });
   },
 
@@ -671,7 +686,7 @@ const usersController = {
 
       const result = {
         orderItems,
-        receiver: {
+        receiver: receiver && {
           name: receiver.name,
           phone: receiver.phone,
           post_code: receiver.post_code,
@@ -1040,7 +1055,7 @@ const usersController = {
 
       findOrder.payment_method_id = payment_method_id;
 
-      const result = await orderRepo.save('Order');
+      const result = await orderRepo.save(findOrder);
 
       res.status(200).json({
         message: '結帳成功',
@@ -1050,7 +1065,6 @@ const usersController = {
       });
     } catch (error) {
       logger.error('結帳過程失敗:', error);
-
       next(error);
     }
   },
