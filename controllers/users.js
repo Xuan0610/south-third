@@ -310,7 +310,6 @@ const usersController = {
         where: { id },
         relations: ['Receiver'],
       });
-      
       res.status(200).json({
         data: user?.Receiver || null,
       });
