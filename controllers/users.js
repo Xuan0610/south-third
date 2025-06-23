@@ -304,13 +304,15 @@ const usersController = {
   async getReceiver(req, res, next) {
     try {
       const { id } = req.user;
-      const receiverRepository = dataSource.getRepository('Receiver');
-      const findUser = await receiverRepository.findOne({
-        select: ['name', 'phone', 'post_code', 'address'],
+      const userRepo = dataSource.getRepository('User');
+
+      const user = await userRepo.findOne({
         where: { id },
+        relations: ['Receiver'],
       });
+      
       res.status(200).json({
-        data: findUser,
+        data: user?.Receiver || null,
       });
     } catch (error) {
       logger.error('取得收件資訊錯誤:', error);
