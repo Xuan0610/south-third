@@ -26,15 +26,30 @@ module.exports = new EntitySchema({
       default: 0,
       nullable: false,
     },
+    threshold_price: {
+      type: 'integer',
+      default: 0,
+      nullable: false,
+    },
+    usage_limit: {
+      type: 'integer',
+      default: 1,
+      nullable: false,
+    },
+
+    expired_at: {
+      type: 'timestamptz',
+      nullable: true,
+    },
     created_at: {
       type: 'timestamptz',
       createDate: true,
-      nullable: false
+      nullable: false,
     },
     updated_at: {
       type: 'timestamptz',
       updateDate: true,
-      nullable: false
+      nullable: false,
     },
-  }
+  },
 });
