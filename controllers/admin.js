@@ -655,13 +655,20 @@ const adminController = {
       const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
       const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
 
+      // 將範圍轉換為 UTC 時間
+      const firstDayUTC = new Date(
+        firstDayOfMonth.getTime() - firstDayOfMonth.getTimezoneOffset() * 60000
+      );
+      const lastDayUTC = new Date(
+        lastDayOfMonth.getTime() - lastDayOfMonth.getTimezoneOffset() * 60000
+      );
+
       const orders = await orderRepo.find({
         where: {
           is_paid: true,
-          created_at: Between(firstDayOfMonth, lastDayOfMonth),
+          created_at: Between(firstDayUTC, lastDayUTC),
         },
       });
-
       const revenue = orders.reduce((sum, order) => sum + (order.total_price || 0), 0);
 
       res.status(200).json({
