@@ -12,6 +12,7 @@ const Discount_method = require('../entities/Discount_method');
 const Payment_method = require('../entities/Payment_method');
 const Classification = require('../entities/Classification');
 const Receiver = require('../entities/Receiver');
+const User_discount_usage = require('../entities/User_discount_usage');
 
 
 
@@ -35,9 +36,10 @@ const dataSource = new DataSource({
     Discount_method,
     Payment_method,
     Classification,
-    Receiver
+    Receiver,
+    User_discount_usage,
   ],
-  ssl: config.get('db.ssl')
+  ssl: config.get('db.ssl'),
 });
 
 module.exports = { dataSource };

@@ -17,6 +17,7 @@ const {
   isNotValidTaiwanAddressAdvanced,
 } = require('../utils/validUtils');
 const generateJWT = require('../utils/generateJWT');
+const dayjs = require('dayjs');
 
 const adminController = {
   async getClassification(req, res, next) {
@@ -684,53 +685,96 @@ const adminController = {
     }
   },
 
+  // 新增優惠碼
   async postDiscount(req, res, next) {
     try {
-      const { discount_kol, discount_percent, discount_price } = req.body;
+      const {
+        discount_kol,
+        discount_percent,
+        discount_price,
+        threshold_price,
+        usage_limit,
+        expired_at,
+      } = req.body;
 
+      // 檢查優惠碼格式
       if (isUndefined(discount_kol) || isNotValidString(discount_kol)) {
-        res.status(400).json({
-          message: '優惠碼格式錯誤',
-        });
-        return;
+        return res.status(400).json({ message: '優惠碼格式錯誤' });
       }
 
-      if (!isUndefined(discount_percent) && !isUndefined(discount_price)) {
-        res.status(400).json({
-          message: '折扣類型重複',
-        });
-        return;
+      // 折扣類型：不能同時存在
+      const isPercentValid = !isUndefined(discount_percent) && Number(discount_percent) !== 1;
+      const isPriceValid = !isUndefined(discount_price) && Number(discount_price) !== 0;
+      if (isPercentValid && isPriceValid) {
+        return res.status(400).json({ message: '不能同時設定百分比與固定金額折扣' });
+      }
+
+      // 檢查折扣百分比格式
+      if (
+        isPercentValid &&
+        (isNaN(discount_percent) || discount_percent <= 0 || discount_percent >= 1)
+      ) {
+        return res.status(400).json({ message: '折扣百分比必須介於 0 與 1 之間' });
+      }
+
+      // 折扣金額驗證
+      if (isPriceValid && (!Number.isInteger(discount_price) || discount_price < 0)) {
+        return res.status(400).json({ message: '折扣金額必須為非負整數' });
+      }
+
+      // 驗證門檻金額
+      if (
+        !isUndefined(threshold_price) &&
+        (!Number.isInteger(threshold_price) || threshold_price < 0)
+      ) {
+        return res.status(400).json({ message: '門檻金額格式錯誤' });
+      }
+
+      // 使用次數驗證
+      if (!isUndefined(usage_limit) && (!Number.isInteger(usage_limit) || usage_limit < 1)) {
+        return res.status(400).json({ message: '使用次數限制必須為正整數' });
+      }
+
+      // 到期日格式驗證（可為空）
+      if (!isUndefined(expired_at) && !dayjs(expired_at).isValid()) {
+        return res.status(400).json({ message: '到期日格式錯誤' });
       }
 
       const discountRepo = dataSource.getRepository('Discount_method');
       const existDiscount = await discountRepo.findOne({ where: { discount_kol } });
 
       if (existDiscount) {
-        res.status(400).json({
-          message: '優惠碼重複',
-        });
-        return;
+        return res.status(400).json({ message: '優惠碼重複' });
       }
 
       const newDiscount = discountRepo.create({
         discount_kol,
         discount_percent: isUndefined(discount_percent) ? 1 : discount_percent,
         discount_price: isUndefined(discount_price) ? 0 : discount_price,
+        threshold_price: isUndefined(threshold_price) ? 0 : threshold_price,
+        expired_at: isUndefined(expired_at) ? null : expired_at,
+        usage_limit: isUndefined(usage_limit) ? 1 : usage_limit,
       });
 
       const result = await discountRepo.save(newDiscount);
 
-      res.status(201).json({
+      return res.status(201).json({
         message: '新增成功',
         data: {
           id: result.id,
           discount_kol: result.discount_kol,
           discount_percent: result.discount_percent,
           discount_price: result.discount_price,
+          threshold_price: result.threshold_price,
+          usage_limit: result.usage_limit,
+          expired_at: result.expired_at,
+          created_at: result.created_at,
+          updated_at: result.updated_at,
         },
       });
     } catch (error) {
-      logger.error('伺服器錯誤:', error);
+      logger.error('postDiscount 錯誤:', error);
+      return res.status(500).json({ message: '伺服器錯誤' });
     }
   },
 
