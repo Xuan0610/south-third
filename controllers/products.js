@@ -221,7 +221,7 @@ const productsController = {
       }));
 
       res.status(200).json({
-        message: '成功',
+        message: '取得成功',
         data: result,
       });
     } catch (error) {
