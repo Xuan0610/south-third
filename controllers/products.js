@@ -181,7 +181,7 @@ const productsController = {
           image_url: product.Product.image_url,
           origin: product.Product.Product_detail.origin,
           feature: product.Product.Product_detail.feature,
-          flavor: product.Product.Product_detail.flavor,
+          description: product.Product.Product_detail.description,
           price: product.Product.price,
         }));
 
