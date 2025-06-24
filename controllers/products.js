@@ -149,16 +149,12 @@ const productsController = {
       const endDate = end_date ? new Date(end_date) : new Date();
 
       const bestSellers = await orderLinkProductRepo.find({
-        relations: ['order'],
+        relations: ['Order', 'Product', 'Product.Product_detail'],
         where: {
-          order: {
+          Order: {
             created_at: Between(startDate, endDate),
-            status: 'completed',
+            // status: 'completed',
           },
-        },
-        select: {
-          product_id: true,
-          quantity: true,
         },
       });
 
@@ -168,21 +164,30 @@ const productsController = {
           acc[curr.product_id] = {
             product_id: curr.product_id,
             total_quantity: 0,
+            Product: curr.Product,
           };
         }
         acc[curr.product_id].total_quantity += curr.quantity;
         return acc;
       }, {});
 
-      // 轉換為陣列並排序，只取前六名
-      const topSixProducts = Object.values(productSales)
+      // 轉換為陣列並排序，只取前四名
+      const topFourProducts = Object.values(productSales)
         .sort((a, b) => b.total_quantity - a.total_quantity)
-        .slice(0, 6)
-        .map(item => item.product_id);
+        .slice(0, 4)
+        .map(product => ({
+          id: product.product_id,
+          name: product.Product.name,
+          image_url: product.Product.image_url,
+          origin: product.Product.Product_detail.origin,
+          feature: product.Product.Product_detail.feature,
+          flavor: product.Product.Product_detail.flavor,
+          price: product.Product.price,
+        }));
 
       res.status(200).json({
         message: '成功',
-        data: topSixProducts,
+        data: topFourProducts,
       });
     } catch (error) {
       next(error);
