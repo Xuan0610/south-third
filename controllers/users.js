@@ -442,15 +442,15 @@ const usersController = {
   async getCart(req, res, next) {
     try {
       const { id } = req.user;
-      const cartRepository = dataSource.getRepository('Cart');
+      const cartRepo = dataSource.getRepository('Cart');
+      const cartItemRepo = dataSource.getRepository('Cart_link_product');
 
-      // 1. 尋找使用者的購物車
-      const cart = await cartRepository.findOne({
-        where: { user_id: id, deleted_at: IsNull() },
-        relations: ['Cart_link_product', 'Cart_link_product.Product', 'Discount_method'],
+      const cart = await cartRepo.findOne({
+        where: { user_id: id, deleted_at: null },
+        relations: ['Discount_method'], // 只保留折扣關聯
       });
 
-      if (!cart || !cart.Cart_link_product || cart.Cart_link_product.length === 0) {
+      if (!cart) {
         return res.status(200).json({
           message: '購物車是空的',
           data: {
@@ -462,9 +462,28 @@ const usersController = {
         });
       }
 
-      // 3. 整理購物車項目並計算商品總價
+      const items = await cartItemRepo.find({
+        where: {
+          cart_id: cart.id,
+          deleted_at: IsNull(),
+        },
+        relations: ['Product'],
+      });
+
+      if (items.length === 0) {
+        return res.status(200).json({
+          message: '購物車是空的',
+          data: {
+            items: [],
+            total_price: 0,
+            discount: 0,
+            final_price: 0,
+          },
+        });
+      }
+
       let total_price = 0;
-      const items = cart.Cart_link_product.map(item => {
+      const mappedItems = items.map(item => {
         const single_total_price = item.price * item.quantity;
         total_price += single_total_price;
         return {
@@ -477,30 +496,23 @@ const usersController = {
         };
       });
 
-      // 4. 計算折扣金額
       let discount = 0;
       const discountMethod = cart.Discount_method;
       if (discountMethod) {
         if (discountMethod.discount_percent < 1) {
-          // 使用百分比折扣 (應該是折扣掉的部分)
           discount = Math.round(total_price * (1 - discountMethod.discount_percent));
         } else if (discountMethod.discount_price > 0) {
-          // 使用固定金額折扣
           discount = discountMethod.discount_price;
         }
       }
 
-      // 確保折扣金額不大於商品總價
-      if (discount > total_price) {
-        discount = total_price;
-      }
-
+      if (discount > total_price) discount = total_price;
       const final_price = total_price - discount;
 
       res.status(200).json({
         message: '取得成功',
         data: {
-          items,
+          items: mappedItems,
           total_price,
           discount,
           final_price,
@@ -512,14 +524,14 @@ const usersController = {
     }
   },
 
+  // 加入購物車商品
   async addToCart(req, res, next) {
     try {
       const userId = req.user.id;
       const { product_id, quantity } = req.body;
 
-      // 基本欄位檢查
       if (!product_id || !quantity || quantity <= 0) {
-        return res.status(400).json({ message: '加入購物車發生錯誤' });
+        return res.status(400).json({ message: '加入購物車失敗：商品資訊錯誤' });
       }
 
       const cartRepository = dataSource.getRepository('Cart');
@@ -535,7 +547,7 @@ const usersController = {
         cart = await cartRepository.save(cart);
       }
 
-      // 查詢商品
+      // 確認商品存在且尚未刪除
       const product = await productRepository.findOne({
         where: { id: product_id, deleted_at: null },
       });
@@ -543,34 +555,134 @@ const usersController = {
         return res.status(400).json({ message: '查無此商品' });
       }
 
-      // 檢查庫存
+      // 檢查商品庫存
       if (product.stock < quantity) {
         return res.status(400).json({ message: '商品庫存不足' });
       }
 
-      // 查詢購物車內是否已有此商品
-      let cartLinkProduct = await cartLinkProductRepository.findOne({
-        where: { cart_id: cart.id, product_id: product_id, deleted_at: null },
+      // 僅找未刪除的購物車品項
+      const existingItem = await cartLinkProductRepository.findOne({
+        where: { cart_id: cart.id, product_id, deleted_at: null },
       });
 
-      if (cartLinkProduct) {
-        // 已有則更新數量
-        cartLinkProduct.quantity += quantity;
-        await cartLinkProductRepository.save(cartLinkProduct);
+      if (existingItem) {
+        // 更新未刪除項目的數量
+        existingItem.quantity += quantity;
+        await cartLinkProductRepository.save(existingItem);
       } else {
-        // 沒有則新增
-        cartLinkProduct = cartLinkProductRepository.create({
-          cart_id: cart.id,
-          product_id,
-          quantity,
-          price: product.price,
+        // 嘗試找出曾被刪除的購物車項目（含 deleted 資料）
+        let deletedItem = await cartLinkProductRepository.findOne({
+          where: { cart_id: cart.id, product_id },
+          withDeleted: true, // 包含軟刪除資料
         });
-        await cartLinkProductRepository.save(cartLinkProduct);
+
+        if (deletedItem && deletedItem.deleted_at !== null) {
+          // 復原舊資料
+          deletedItem.deleted_at = null;
+          deletedItem.quantity = quantity;
+          deletedItem.price = product.price;
+          await cartLinkProductRepository.save(deletedItem);
+        } else {
+          // 沒有曾刪除的紀錄，建立新資料
+          const newItem = cartLinkProductRepository.create({
+            cart_id: cart.id,
+            product_id,
+            quantity,
+            price: product.price,
+          });
+          await cartLinkProductRepository.save(newItem);
+        }
       }
 
-      return res.status(200).json({ message: '新增成功' });
+      return res.status(200).json({ message: '加入成功' });
     } catch (error) {
       logger.error('加入購物車發生錯誤:', error);
+      next(error);
+    }
+  },
+
+  // 更新購物車商品數量
+  async updateCartItem(req, res, next) {
+    try {
+      const userId = req.user.id;
+      const { product_id, quantity } = req.body;
+
+      if (!product_id || !quantity || quantity < 1) {
+        return res.status(400).json({ message: '商品 ID 或數量錯誤' });
+      }
+
+      const cartRepo = dataSource.getRepository('Cart');
+      const cartItemRepo = dataSource.getRepository('Cart_link_product');
+      const productRepo = dataSource.getRepository('Product');
+
+      // 找到使用者的購物車
+      const cart = await cartRepo.findOne({ where: { user_id: userId, deleted_at: null } });
+      if (!cart) {
+        return res.status(400).json({ message: '查無購物車' });
+      }
+
+      // 查詢該商品是否存在於購物車
+      const cartItem = await cartItemRepo.findOne({
+        where: { cart_id: cart.id, product_id, deleted_at: null },
+      });
+      if (!cartItem) {
+        return res.status(404).json({ message: '購物車內無此商品' });
+      }
+
+      // 查詢商品是否存在與庫存足夠
+      const product = await productRepo.findOne({ where: { id: product_id, deleted_at: null } });
+      if (!product || product.stock < quantity) {
+        return res.status(400).json({ message: '商品不存在或庫存不足' });
+      }
+
+      cartItem.quantity = quantity;
+      await cartItemRepo.save(cartItem);
+
+      res.status(200).json({ message: '數量已更新' });
+    } catch (error) {
+      logger.error('更新購物車商品數量錯誤:', error);
+      next(error);
+    }
+  },
+
+  // 刪除購物車商品
+  async deleteCartItem(req, res, next) {
+    try {
+      const userId = req.user.id;
+      const { product_id } = req.body;
+
+      if (!product_id) {
+        return res.status(400).json({ message: '缺少商品 ID' });
+      }
+
+      const cartRepo = dataSource.getRepository('Cart');
+      const cartItemRepo = dataSource.getRepository('Cart_link_product');
+
+      const cart = await cartRepo.findOne({
+        where: { user_id: userId, deleted_at: null },
+      });
+
+      if (!cart) {
+        return res.status(404).json({ message: '找不到購物車' });
+      }
+
+      const cartItem = await cartItemRepo.findOne({
+        where: { cart_id: cart.id, product_id, deleted_at: null },
+      });
+
+      if (!cartItem) {
+        return res.status(404).json({ message: '購物車中無此商品' });
+      }
+
+      // 設定軟刪除（deleted_at 時間戳記）
+      cartItem.deleted_at = new Date();
+      cartItem.quantity = 0;
+      await cartItemRepo.save(cartItem);
+
+      return res.status(200).json({ message: '商品已從購物車移除' });
+    } catch (error) {
+      logger.error('刪除購物車商品失敗:', error);
+      next(error);
     }
   },
 
@@ -658,7 +770,7 @@ const usersController = {
       if (!receiver || !receiver.name || !receiver.phone || !receiver.address) {
         return res.status(400).json({ message: '收件人資訊不完整，請先填寫收件人資訊' });
       }
-      
+
       let totalPrice = 0;
       const orderItems = cart.Cart_link_product.map(item => {
         const subtotal = item.quantity * item.price;
