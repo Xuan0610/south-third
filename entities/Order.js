@@ -103,5 +103,10 @@ module.exports = new EntitySchema({
         foreignKeyConstraintName: 'order_payment_id_fk',
       },
     },
+    Order_link_product: {
+      type: 'one-to-many',
+      target: 'Order_link_product',
+      inverseSide: 'Order',
+    },
   },
 });

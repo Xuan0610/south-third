@@ -529,6 +529,7 @@ const adminController = {
       next(error);
     }
   },
+
   async getIsShip(req, res, next) {
     try {
       const orderRepo = dataSource.getRepository('Order');
@@ -772,7 +773,7 @@ const adminController = {
     try {
       const ordersRepo = dataSource.getRepository('Order');
       const orders = await ordersRepo.find({
-        relations: ['user', 'order_link_product', 'order_link_product.product'],
+        relations: ['User', 'Order_link_product', 'Order_link_product.Product'],
         order: {
           created_at: 'DESC',
         },
@@ -783,7 +784,7 @@ const adminController = {
         const createdTime = order.created_at.toISOString().slice(0, 10).replace(/-/g, '');
 
         // 找出最早加入的商品
-        const firstProduct = order.order_link_product.sort(
+        const firstProduct = order.Order_link_product.sort(
           (a, b) => new Date(a.created_at) - new Date(b.created_at)
         )[0];
 
@@ -794,8 +795,8 @@ const adminController = {
           id: order.id,
           is_paid: order.is_paid ? 1 : 0,
           total_price: order.total_price,
-          user_email: order.user.email,
-          first_product_name: firstProduct.product.name,
+          user_email: order.User.email,
+          first_product_name: firstProduct.Product.name,
         };
       });
 
@@ -808,7 +809,6 @@ const adminController = {
       next(error);
     }
   },
-
 };
 
 module.exports = adminController;
