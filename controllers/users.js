@@ -686,57 +686,116 @@ const usersController = {
     }
   },
 
+  // 試算優惠 → 套用優惠券
   async getDiscount(req, res, next) {
-    const { discount_kol } = req.body;
-    const { id } = req.user;
-    const discountRepo = dataSource.getRepository('Discount_method');
-    const existDiscount = await discountRepo.findOne({
-      where: { discount_kol },
-    });
+    try {
+      const { discount_kol } = req.body;
+      const userId = req.user.id;
 
-    if (!existDiscount) {
-      res.status(400).json({
-        message: '優惠碼錯誤',
+      if (!discount_kol || typeof discount_kol !== 'string') {
+        return res.status(400).json({ message: '缺少或格式錯誤的優惠碼' });
+      }
+
+      const discountRepo = dataSource.getRepository('Discount_method');
+      const discount = await discountRepo.findOne({ where: { discount_kol } });
+
+      if (!discount) {
+        return res.status(400).json({ message: '優惠碼錯誤' });
+      }
+
+      // 驗證優惠是否過期
+      if (discount.expired_at && new Date(discount.expired_at) < new Date()) {
+        return res.status(400).json({ message: '優惠碼已過期' });
+      }
+
+      // 取得購物車資訊
+      const cart = await dataSource.getRepository('Cart').findOne({
+        where: { user_id: userId },
+        relations: ['Cart_link_product', 'Cart_link_product.Product'],
       });
-      return;
-    }
 
-    const cartInfo = await dataSource.getRepository('Cart').findOne({
-      where: { user_id: id },
-      relations: ['Cart_link_product', 'Cart_link_product.Product'],
-    });
+      if (!cart || !cart.Cart_link_product?.length) {
+        return res.status(400).json({ message: '您的購物車是空的，無法套用優惠券' });
+      }
 
-    if (!cartInfo || !cartInfo.Cart_link_product || cartInfo.Cart_link_product.length === 0) {
-      res.status(400).json({
-        message: '您的購物車是空的，無法套用優惠券',
+      const totalPrice = cart.Cart_link_product.reduce((sum, item) => {
+        return sum + item.quantity * item.price;
+      }, 0);
+
+      // 驗證是否達門檻
+      if (totalPrice < discount.threshold_price) {
+        return res.status(400).json({ message: `未達使用門檻：${discount.threshold_price} 元` });
+      }
+
+      // 計算折扣金額
+      const discountPercent = parseFloat(discount.discount_percent);
+      const discountPrice = parseInt(discount.discount_price, 10);
+      let discountAmount = 0;
+
+      if (discountPercent < 1) {
+        discountAmount = totalPrice * (1 - discountPercent);
+      } else if (discountPrice > 0) {
+        discountAmount = discountPrice;
+      }
+
+      // 折扣不能超過總價
+      discountAmount = Math.min(totalPrice, discountAmount);
+
+      return res.status(200).json({
+        message: '優惠碼試算成功',
+        data: {
+          discount_id: discount.id,
+          discount_kol: discount.discount_kol,
+          discount_type: discountPercent < 1 ? 'percent' : 'price',
+          discount_amount: Math.round(discountAmount),
+          cart_total: totalPrice,
+          threshold_price: discount.threshold_price,
+          expired_at: discount.expired_at,
+        },
       });
-      return;
+    } catch (error) {
+      logger.error('getDiscount 錯誤:', error);
+      return res.status(500).json({ message: '伺服器錯誤' });
     }
+  },
 
-    // 計算購物車總價：quantity * price 的加總
-    const totalPrice = cartInfo.Cart_link_product.reduce((sum, cartItem) => {
-      return sum + cartItem.quantity * cartItem.price;
-    }, 0);
+  // 使用優惠券 → 實際下訂單時，儲存使用紀錄
+  async postDiscountUsage(req, res, next) {
+    try {
+      const userId = req.user.id;
+      const { discount_id } = req.body;
 
-    let result = 0;
-    // TypeORM/node-postgres 會將 numeric/decimal 類型回傳為字串，需要轉換
-    const discountPercent = parseFloat(existDiscount.discount_percent);
-    const discountPrice = parseInt(existDiscount.discount_price, 10);
+      if (!discount_id) {
+        return res.status(400).json({ message: '缺少 discount_id' });
+      }
 
-    if (discountPercent < 1.0) {
-      // 計算折扣金額 (例如 20% off 是 1 - 0.8)
-      result = totalPrice * (1 - discountPercent);
-    } else if (discountPrice > 0) {
-      result = discountPrice;
+      const usageRepo = dataSource.getRepository('User_discount_usage');
+
+      // 檢查是否已使用過
+      const existingUsage = await usageRepo.findOne({
+        where: { user_id: userId, discount_id },
+      });
+
+      if (existingUsage) {
+        return res.status(400).json({ message: '此優惠券已使用過' });
+      }
+
+      // 建立使用紀錄
+      const newUsage = usageRepo.create({
+        user_id: userId,
+        discount_id,
+      });
+
+      const result = await usageRepo.save(newUsage);
+
+      return res.status(201).json({
+        message: '已記錄優惠券使用紀錄',
+        data: result,
+      });
+    } catch (error) {
+      console.error('postDiscountUsage 錯誤:', error);
+      return res.status(500).json({ message: '伺服器錯誤' });
     }
-
-    // 折扣金額不能超過商品總額
-    result = Math.min(totalPrice, result);
-
-    res.status(200).json({
-      message: '輸入優惠碼成功',
-      data: Math.round(result), // 回傳四捨五入後的整數
-    });
   },
 
   async getOrderReview(req, res, next) {
