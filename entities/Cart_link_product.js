@@ -7,12 +7,12 @@ module.exports = new EntitySchema({
     cart_id: {
       primary: true,
       type: 'uuid',
-      nullable: false
+      nullable: false,
     },
     product_id: {
       primary: true,
       type: 'uuid',
-      nullable: false
+      nullable: false,
     },
     quantity: {
       type: 'integer',
@@ -33,6 +33,11 @@ module.exports = new EntitySchema({
       updateDate: true,
       nullable: false,
     },
+    deleted_at: {
+      type: 'timestamptz',
+      nullable: true,
+      deleteDate: true,
+    },
   },
   relations: {
     Cart: {
@@ -42,7 +47,7 @@ module.exports = new EntitySchema({
         name: 'cart_id',
         referencedColumnName: 'id',
         foreignKeyConstraintName: 'cart_link_product_cart_id_fk',
-      }
+      },
     },
     Product: {
       type: 'many-to-one',
@@ -51,7 +56,7 @@ module.exports = new EntitySchema({
         name: 'product_id',
         referencedColumnName: 'id',
         foreignKeyConstraintName: 'cart_link_product_product_id_fk',
-      }
-    }
-  }
+      },
+    },
+  },
 });
