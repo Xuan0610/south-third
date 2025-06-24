@@ -57,6 +57,7 @@ const productsController = {
         image_url: product.image_url,
         feature: product.Product_detail.feature,
         price: product.price,
+        stock: product.stock,
       }));
 
       const allClassifications = await classificationRepo.find({
