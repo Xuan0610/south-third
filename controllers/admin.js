@@ -529,6 +529,7 @@ const adminController = {
       next(error);
     }
   },
+
   async getIsShip(req, res, next) {
     try {
       const orderRepo = dataSource.getRepository('Order');
@@ -655,13 +656,20 @@ const adminController = {
       const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
       const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
 
+      // 將範圍轉換為 UTC 時間
+      const firstDayUTC = new Date(
+        firstDayOfMonth.getTime() - firstDayOfMonth.getTimezoneOffset() * 60000
+      );
+      const lastDayUTC = new Date(
+        lastDayOfMonth.getTime() - lastDayOfMonth.getTimezoneOffset() * 60000
+      );
+
       const orders = await orderRepo.find({
         where: {
           is_paid: true,
-          created_at: Between(firstDayOfMonth, lastDayOfMonth),
+          created_at: Between(firstDayUTC, lastDayUTC),
         },
       });
-
       const revenue = orders.reduce((sum, order) => sum + (order.total_price || 0), 0);
 
       res.status(200).json({
@@ -765,7 +773,7 @@ const adminController = {
     try {
       const ordersRepo = dataSource.getRepository('Order');
       const orders = await ordersRepo.find({
-        relations: ['user', 'order_link_product', 'order_link_product.product'],
+        relations: ['User', 'Order_link_product', 'Order_link_product.Product'],
         order: {
           created_at: 'DESC',
         },
@@ -776,7 +784,7 @@ const adminController = {
         const createdTime = order.created_at.toISOString().slice(0, 10).replace(/-/g, '');
 
         // 找出最早加入的商品
-        const firstProduct = order.order_link_product.sort(
+        const firstProduct = order.Order_link_product.sort(
           (a, b) => new Date(a.created_at) - new Date(b.created_at)
         )[0];
 
@@ -787,8 +795,8 @@ const adminController = {
           id: order.id,
           is_paid: order.is_paid ? 1 : 0,
           total_price: order.total_price,
-          user_email: order.user.email,
-          first_product_name: firstProduct.product.name,
+          user_email: order.User.email,
+          first_product_name: firstProduct.Product.name,
         };
       });
 
@@ -801,7 +809,6 @@ const adminController = {
       next(error);
     }
   },
-
 };
 
 module.exports = adminController;
