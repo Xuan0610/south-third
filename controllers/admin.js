@@ -17,7 +17,6 @@ const {
   isNotValidTaiwanAddressAdvanced,
 } = require('../utils/validUtils');
 const generateJWT = require('../utils/generateJWT');
-const dayjs = require('dayjs');
 
 const adminController = {
   async getClassification(req, res, next) {
@@ -736,7 +735,7 @@ const adminController = {
       }
 
       // 到期日驗證
-      if (!isUndefined(expired_at) && !dayjs(expired_at).isValid()) {
+      if (!isUndefined(expired_at) && isNaN(new Date(expired_at).getTime())) {
         return res.status(400).json({ message: '到期日格式錯誤' });
       }
 
