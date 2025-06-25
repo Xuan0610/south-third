@@ -696,6 +696,10 @@ const usersController = {
         return res.status(400).json({ message: '缺少或格式錯誤的優惠碼' });
       }
 
+      if (!/^[A-Z0-9]{6}$/.test(discount_kol)) {
+        return res.status(400).json({ message: '優惠碼格式錯誤' });
+      }
+
       const discountRepo = dataSource.getRepository('Discount_method');
       const discount = await discountRepo.findOne({ where: { discount_kol } });
 
@@ -1070,7 +1074,7 @@ const usersController = {
       const ordersRepo = dataSource.getRepository('Order');
       const orders = await ordersRepo.find({
         where: { user_id: id },
-        relations: ['order_link_product', 'order_link_product.product'],
+        relations: ['Order_link_product', 'Order_link_product.Product'],
         take: perPage,
         skip: perPage * (pageNum - 1),
         order: {
@@ -1115,11 +1119,11 @@ const usersController = {
       const order = await ordersRepo.findOne({
         where: { user_id: id, order_id },
         relations: [
-          'order_link_product',
-          'order_link_product.product',
-          'order_link_product.product.Product_detail',
-          'user',
-          'discount',
+          'Order_link_product',
+          'Order_link_product.Product',
+          'Order_link_product.Product.Product_detail',
+          'User',
+          'Discount_method',
         ],
       });
 
