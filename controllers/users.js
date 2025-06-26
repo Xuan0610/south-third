@@ -693,11 +693,11 @@ const usersController = {
       const userId = req.user.id;
 
       if (!discount_kol || typeof discount_kol !== 'string') {
-        return res.status(400).json({ message: '優惠碼格式錯誤' });
+        return res.status(400).json({ message: '無此優惠劵' });
       }
 
       if (!/^[A-Z0-9]{6}$/.test(discount_kol)) {
-        return res.status(400).json({ message: '優惠碼格式錯誤' });
+        return res.status(400).json({ message: '無此優惠劵' });
       }
 
       const discountRepo = dataSource.getRepository('Discount_method');
@@ -705,6 +705,18 @@ const usersController = {
 
       if (!discount) {
         return res.status(400).json({ message: '無此優惠劵' });
+      }
+
+      // 驗證是否已使用過
+      const usageRepo = dataSource.getRepository('User_discount_usage');
+      const existed = await usageRepo.findOne({
+        where: {
+          user_id: userId,
+          discount_id: discount.id,
+        },
+      });
+      if (existed) {
+        return res.status(400).json({ message: '此優惠劵您已使用過' });
       }
 
       // 驗證是否逾期
@@ -766,7 +778,6 @@ const usersController = {
       return res.status(500).json({ message: '伺服器錯誤' });
     }
   },
-
 
   // 使用優惠券 → 實際下訂單時，儲存使用紀錄
   async postDiscountUsage(req, res, next) {
