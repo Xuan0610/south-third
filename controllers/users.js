@@ -687,13 +687,11 @@ const usersController = {
   },
 
   // 試算優惠 → 套用優惠券
-  // 試算優惠 → 套用優惠券
   async getDiscount(req, res, next) {
     try {
       const { discount_kol, selected_total } = req.body;
       const userId = req.user.id;
 
-      // ➤ 禁止空字串、長度不等於 6、格式不符（不使用 trim）
       if (
         !discount_kol ||
         typeof discount_kol !== 'string' ||
@@ -797,9 +795,17 @@ const usersController = {
         return res.status(400).json({ message: '缺少 discount_id' });
       }
 
+      // ➤ 驗證優惠券是否存在
+      const discountRepo = dataSource.getRepository('Discount_method');
+      const discount = await discountRepo.findOne({ where: { id: discount_id } });
+
+      if (!discount) {
+        return res.status(400).json({ message: '無效的優惠券 ID' });
+      }
+
       const usageRepo = dataSource.getRepository('User_discount_usage');
 
-      // 檢查是否已使用過
+      // ➤ 檢查是否已使用過
       const existingUsage = await usageRepo.findOne({
         where: { user_id: userId, discount_id },
       });
@@ -808,7 +814,7 @@ const usersController = {
         return res.status(400).json({ message: '此優惠券已使用過' });
       }
 
-      // 建立使用紀錄
+      // ➤ 建立使用紀錄
       const newUsage = usageRepo.create({
         user_id: userId,
         discount_id,
