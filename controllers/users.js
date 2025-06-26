@@ -712,12 +712,12 @@ const usersController = {
         return res.status(400).json({ message: '無此優惠劵' });
       }
 
-      // ➤ 驗證是否啟用
+      // 驗證是否啟用
       if (!discount.is_active) {
         return res.status(400).json({ message: '此優惠劵已失效' });
       }
 
-      // ➤ 驗證是否已使用過
+      // 驗證是否已使用過
       const usageRepo = dataSource.getRepository('User_discount_usage');
       const existed = await usageRepo.findOne({
         where: {
@@ -730,17 +730,17 @@ const usersController = {
         return res.status(400).json({ message: '此優惠劵您已使用過' });
       }
 
-      // ➤ 驗證是否逾期
+      // 驗證是否逾期
       if (discount.expired_at && new Date(discount.expired_at) < new Date()) {
         return res.status(400).json({ message: '優惠劵已逾期' });
       }
 
-      // ➤ 驗證是否已用光
+      // 證是否已用光
       if (discount.usage_limit && discount.used_count >= discount.usage_limit) {
         return res.status(400).json({ message: '優惠劵已用光' });
       }
 
-      // ➤ 自動失效處理
+      // 自動失效處理
       if (
         (discount.expired_at && new Date(discount.expired_at) < new Date()) ||
         (discount.usage_limit && discount.used_count >= discount.usage_limit)
@@ -749,12 +749,12 @@ const usersController = {
         await discountRepo.save(discount);
       }
 
-      // ➤ 驗證是否符合門檻
+      // 驗證是否符合門檻
       if (selected_total < discount.threshold_price) {
         return res.status(400).json({ message: '不符活動門檻' });
       }
 
-      // ➤ 計算折扣金額
+      // 計算折扣金額
       const discountPercent = parseFloat(discount.discount_percent);
       const discountPrice = parseInt(discount.discount_price, 10);
       let discountAmount = 0;
@@ -795,7 +795,7 @@ const usersController = {
         return res.status(400).json({ message: '缺少 discount_id' });
       }
 
-      // ➤ 驗證優惠券是否存在
+      // 驗證優惠券是否存在
       const discountRepo = dataSource.getRepository('Discount_method');
       const discount = await discountRepo.findOne({ where: { id: discount_id } });
 
@@ -805,7 +805,7 @@ const usersController = {
 
       const usageRepo = dataSource.getRepository('User_discount_usage');
 
-      // ➤ 檢查是否已使用過
+      // 檢查是否已使用過
       const existingUsage = await usageRepo.findOne({
         where: { user_id: userId, discount_id },
       });
@@ -814,7 +814,7 @@ const usersController = {
         return res.status(400).json({ message: '此優惠券已使用過' });
       }
 
-      // ➤ 建立使用紀錄
+      // 建立使用紀錄
       const newUsage = usageRepo.create({
         user_id: userId,
         discount_id,
