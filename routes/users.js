@@ -30,7 +30,7 @@ router.get('/membership/orders', auth, handleErrorAsync(usersController.getUserO
 router.get('/checkout', auth, handleErrorAsync(usersController.getCheckout));
 router.put('/checkout', auth, handleErrorAsync(usersController.putCheckout));
 router.post('/membership/discount', auth, handleErrorAsync(usersController.getDiscount)); // 試算優惠
-router.post('/membership/discount/usage', auth, usersController.postDiscountUsage); // 儲存使用紀錄
+router.post('/membership/discount/usage', auth, handleErrorAsync(usersController.postDiscountUsage)); // 儲存使用紀錄
 router.get('/membership/:order_id', auth, handleErrorAsync(usersController.getUserOrderDetail));
 
 module.exports = router;
