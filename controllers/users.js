@@ -693,7 +693,7 @@ const usersController = {
       const userId = req.user.id;
 
       if (!discount_kol || typeof discount_kol !== 'string') {
-        return res.status(400).json({ message: '缺少或格式錯誤的優惠碼' });
+        return res.status(400).json({ message: '優惠碼格式錯誤' });
       }
 
       if (!/^[A-Z0-9]{6}$/.test(discount_kol)) {
@@ -704,12 +704,17 @@ const usersController = {
       const discount = await discountRepo.findOne({ where: { discount_kol } });
 
       if (!discount) {
-        return res.status(400).json({ message: '優惠碼錯誤' });
+        return res.status(400).json({ message: '無此優惠劵' });
       }
 
-      // 驗證優惠是否過期
+      // 驗證是否逾期
       if (discount.expired_at && new Date(discount.expired_at) < new Date()) {
-        return res.status(400).json({ message: '優惠碼已過期' });
+        return res.status(400).json({ message: '優惠劵已逾期' });
+      }
+
+      // 驗證是否已用光
+      if (discount.usage_limit && discount.used_count >= discount.usage_limit) {
+        return res.status(400).json({ message: '優惠劵已用光' });
       }
 
       // 取得購物車資訊
@@ -726,9 +731,9 @@ const usersController = {
         return sum + item.quantity * item.price;
       }, 0);
 
-      // 驗證是否達門檻
+      // 驗證門檻金額
       if (totalPrice < discount.threshold_price) {
-        return res.status(400).json({ message: `未達使用門檻：${discount.threshold_price} 元` });
+        return res.status(400).json({ message: '不符活動門檻' });
       }
 
       // 計算折扣金額
@@ -742,7 +747,6 @@ const usersController = {
         discountAmount = discountPrice;
       }
 
-      // 折扣不能超過總價
       discountAmount = Math.min(totalPrice, discountAmount);
 
       return res.status(200).json({
@@ -762,6 +766,7 @@ const usersController = {
       return res.status(500).json({ message: '伺服器錯誤' });
     }
   },
+
 
   // 使用優惠券 → 實際下訂單時，儲存使用紀錄
   async postDiscountUsage(req, res, next) {
