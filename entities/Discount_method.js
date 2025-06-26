@@ -36,6 +36,11 @@ module.exports = new EntitySchema({
       default: 1,
       nullable: false,
     },
+    is_active: {
+      type: 'boolean',
+      default: true,
+      nullable: false,
+    },
     expired_at: {
       type: 'timestamptz',
       nullable: true,
