@@ -753,6 +753,7 @@ const adminController = {
         threshold_price: isUndefined(threshold_price) ? 0 : threshold_price,
         expired_at: isUndefined(expired_at) ? null : expired_at,
         usage_limit: isUndefined(usage_limit) ? 1 : usage_limit,
+        is_active: true,
       });
 
       const result = await discountRepo.save(newDiscount);
@@ -767,6 +768,7 @@ const adminController = {
           threshold_price: result.threshold_price,
           usage_limit: result.usage_limit,
           expired_at: result.expired_at,
+          is_active: result.is_active,
           created_at: result.created_at,
           updated_at: result.updated_at,
         },

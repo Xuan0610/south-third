@@ -689,42 +689,69 @@ const usersController = {
   // 試算優惠 → 套用優惠券
   async getDiscount(req, res, next) {
     try {
-      const { discount_kol } = req.body;
+      const { discount_kol, selected_total } = req.body;
       const userId = req.user.id;
 
-      if (!discount_kol || typeof discount_kol !== 'string') {
-        return res.status(400).json({ message: '缺少或格式錯誤的優惠碼' });
+      if (
+        !discount_kol ||
+        typeof discount_kol !== 'string' ||
+        discount_kol.length !== 6 ||
+        !/^[A-Z0-9]{6}$/.test(discount_kol)
+      ) {
+        return res.status(400).json({ message: '無此優惠劵' });
+      }
+
+      if (typeof selected_total !== 'number' || selected_total < 0) {
+        return res.status(400).json({ message: '商品金額錯誤' });
       }
 
       const discountRepo = dataSource.getRepository('Discount_method');
       const discount = await discountRepo.findOne({ where: { discount_kol } });
 
       if (!discount) {
-        return res.status(400).json({ message: '優惠碼錯誤' });
+        return res.status(400).json({ message: '無此優惠劵' });
       }
 
-      // 驗證優惠是否過期
-      if (discount.expired_at && new Date(discount.expired_at) < new Date()) {
-        return res.status(400).json({ message: '優惠碼已過期' });
+      // 驗證是否啟用
+      if (!discount.is_active) {
+        return res.status(400).json({ message: '此優惠劵已失效' });
       }
 
-      // 取得購物車資訊
-      const cart = await dataSource.getRepository('Cart').findOne({
-        where: { user_id: userId },
-        relations: ['Cart_link_product', 'Cart_link_product.Product'],
+      // 驗證是否已使用過
+      const usageRepo = dataSource.getRepository('User_discount_usage');
+      const existed = await usageRepo.findOne({
+        where: {
+          user_id: userId,
+          discount_id: discount.id,
+        },
       });
 
-      if (!cart || !cart.Cart_link_product?.length) {
-        return res.status(400).json({ message: '您的購物車是空的，無法套用優惠券' });
+      if (existed) {
+        return res.status(400).json({ message: '此優惠劵您已使用過' });
       }
 
-      const totalPrice = cart.Cart_link_product.reduce((sum, item) => {
-        return sum + item.quantity * item.price;
-      }, 0);
+      // 驗證是否逾期
+      if (discount.expired_at && new Date(discount.expired_at) < new Date()) {
+        return res.status(400).json({ message: '優惠劵已逾期' });
+      }
 
-      // 驗證是否達門檻
-      if (totalPrice < discount.threshold_price) {
-        return res.status(400).json({ message: `未達使用門檻：${discount.threshold_price} 元` });
+      // 證是否已用光
+      if (discount.usage_limit && discount.used_count >= discount.usage_limit) {
+        return res.status(400).json({ message: '優惠劵已用光' });
+      }
+
+      // 自動失效處理
+      if (
+        (discount.expired_at && new Date(discount.expired_at) < new Date()) ||
+        (discount.usage_limit && discount.used_count >= discount.usage_limit)
+      ) {
+        discount.is_active = false;
+        await discountRepo.save(discount);
+      }
+
+      // 驗證是否符合門檻
+      if (selected_total < discount.threshold_price) {
+        return res.status(400).json({ message: '不符活動門檻' });
       }
 
       // 計算折扣金額
@@ -733,13 +760,12 @@ const usersController = {
       let discountAmount = 0;
 
       if (discountPercent < 1) {
-        discountAmount = totalPrice * (1 - discountPercent);
+        discountAmount = selected_total * (1 - discountPercent);
       } else if (discountPrice > 0) {
         discountAmount = discountPrice;
       }
 
-      // 折扣不能超過總價
-      discountAmount = Math.min(totalPrice, discountAmount);
+      discountAmount = Math.min(selected_total, discountAmount);
 
       return res.status(200).json({
         message: '優惠碼試算成功',
@@ -748,7 +774,7 @@ const usersController = {
           discount_kol: discount.discount_kol,
           discount_type: discountPercent < 1 ? 'percent' : 'price',
           discount_amount: Math.round(discountAmount),
-          cart_total: totalPrice,
+          cart_total: selected_total,
           threshold_price: discount.threshold_price,
           expired_at: discount.expired_at,
         },
@@ -767,6 +793,14 @@ const usersController = {
 
       if (!discount_id) {
         return res.status(400).json({ message: '缺少 discount_id' });
+      }
+
+      // 驗證優惠券是否存在
+      const discountRepo = dataSource.getRepository('Discount_method');
+      const discount = await discountRepo.findOne({ where: { id: discount_id } });
+
+      if (!discount) {
+        return res.status(400).json({ message: '無效的優惠券 ID' });
       }
 
       const usageRepo = dataSource.getRepository('User_discount_usage');
@@ -1127,8 +1161,8 @@ const usersController = {
           'Order_link_product',
           'Order_link_product.Product',
           'Order_link_product.Product.Product_detail',
+          'User',
           'Discount_method',
-          'Receiver',
         ],
       });
 
