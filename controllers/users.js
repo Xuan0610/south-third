@@ -852,9 +852,9 @@ const usersController = {
 
       const [cart, user] = await Promise.all([cartPromise, userPromise]);
 
-      if (!cart || !cart.Cart_link_product || cart.Cart_link_product.length === 0) {
-        return res.status(400).json({ message: '購物車是空的' });
-      }
+      // if (!cart || !cart.Cart_link_product || cart.Cart_link_product.length === 0) {
+      //   return res.status(400).json({ message: '購物車是空的' });
+      // }
 
       // 從 user 物件中取得 receiver
       const receiver = user ? user.Receiver : null;
@@ -1102,36 +1102,45 @@ const usersController = {
       }
 
       const ordersRepo = dataSource.getRepository('Order');
-      const orders = await ordersRepo.find({
+      const [orders, totalCount] = await ordersRepo.findAndCount({
         where: { user_id: id },
         relations: ['Order_link_product', 'Order_link_product.Product'],
         take: perPage,
         skip: perPage * (pageNum - 1),
-        order: {
-          created_at: 'DESC',
-        },
+        order: { created_at: 'DESC' },
       });
 
       const ordersResult = orders.map(order => {
-        // 格式化日期為 YYYYMMDD
         const createdDay = order.created_at.toISOString().slice(0, 10).replace(/-/g, '');
+        const firstProduct = order.Order_link_product?.[0]?.Product;
 
-        // 取得第一個商品名稱作為代表
-        const firstProduct = order.order_link_product[0]?.product;
+        const orderDetails = order.Order_link_product.map(item => ({
+          product_id: item.product_id,
+          quantity: item.quantity,
+        }));
 
         return {
+          id: order.id,
           created_at: createdDay,
           display_id: order.display_id,
           product_name: firstProduct ? firstProduct.name : '無商品',
           total_price: order.total_price,
           is_paid: order.is_paid ? 1 : 0,
           is_ship: order.is_ship ? 1 : 0,
+          order_details: orderDetails,
         };
       });
+
+      const totalPages = Math.ceil(totalCount / perPage);
 
       res.status(200).json({
         message: '取得成功',
         data: ordersResult,
+        pagination: {
+          currentPage: pageNum,
+          totalPages,
+          totalCount,
+        },
       });
     } catch (error) {
       logger.error('伺服器錯誤', error);
@@ -1147,12 +1156,12 @@ const usersController = {
 
       const ordersRepo = dataSource.getRepository('Order');
       const order = await ordersRepo.findOne({
-        where: { user_id: id, order_id },
+        where: { user_id: id, id: order_id },
         relations: [
           'Order_link_product',
           'Order_link_product.Product',
           'Order_link_product.Product.Product_detail',
-          'User',
+          'Receiver',
           'Discount_method',
         ],
       });
@@ -1173,28 +1182,36 @@ const usersController = {
         display_id: order.display_id,
         created_day: createdDay,
         user_id: order.user_id,
+        is_paid: order.is_paid ? 1 : 0,
+        is_ship: order.is_ship ? 1 : 0,
         receiver: {
-          name: order.receiver_name,
-          phone: order.receiver_phone,
-          post_code: order.receiver_post_code,
-          address: order.receiver_address,
+          name: order.Receiver?.name || null,
+          phone: order.Receiver?.phone || null,
+          post_code: order.Receiver?.post_code || null,
+          address: order.Receiver?.address || null,
         },
-        items: order.order_link_product.map(item => ({
-          name: item.product.name,
+        items: order.Order_link_product.map(item => ({
+          name: item.Product?.name || null,
           price: item.price,
           quantity: item.quantity,
           subtotal: item.price * item.quantity,
         })),
+        order_details: order.Order_link_product.map(item => ({
+          product_id: item.product_id,
+          quantity: item.quantity,
+        })),
         summary: {
-          discount_kol: order.discount?.kol_code || null,
-          product_total: order.order_link_product.reduce(
+          discount_kol: order.Discount_method?.kol_code || null,
+          product_total: order.Order_link_product.reduce(
             (sum, item) => sum + item.price * item.quantity,
             0
           ),
           shipping_fee: order.shipping_fee,
           subtotal: order.total_price,
           discount: order.discount_amount || 0,
-          grand_total: order.final_price,
+          grand_total:
+            order.final_price ??
+            order.total_price - (order.discount_amount || 0) + (order.shipping_fee || 0),
         },
         created_at: order.created_at.toISOString(),
       };
@@ -1277,6 +1294,7 @@ const usersController = {
     try {
       const { id } = req.user;
       const { name, phone, post_code, address } = req.body;
+
       if (
         isUndefined(name) ||
         isUndefined(phone) ||
