@@ -1161,7 +1161,7 @@ const usersController = {
           'Order_link_product',
           'Order_link_product.Product',
           'Order_link_product.Product.Product_detail',
-          'User',
+          'Receiver',
           'Discount_method',
         ],
       });
