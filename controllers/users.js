@@ -581,6 +581,7 @@ const usersController = {
           deletedItem.deleted_at = null;
           deletedItem.quantity = quantity;
           deletedItem.price = product.price;
+          deletedItem.is_selected = true;
           await cartLinkProductRepository.save(deletedItem);
         } else {
           // 沒有曾刪除的紀錄，建立新資料
@@ -589,6 +590,7 @@ const usersController = {
             product_id,
             quantity,
             price: product.price,
+            is_selected: true,
           });
           await cartLinkProductRepository.save(newItem);
         }
