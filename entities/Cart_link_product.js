@@ -23,6 +23,11 @@ module.exports = new EntitySchema({
       type: 'integer',
       nullable: false,
     },
+    is_selected: {
+      type: 'boolean',
+      default: true, 
+      nullable: false,
+    },
     created_at: {
       type: 'timestamptz',
       createDate: true,
