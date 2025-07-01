@@ -603,6 +603,44 @@ const usersController = {
     }
   },
 
+  // 更新購物車商品勾選狀態
+  async updateCartItemSelect(req, res, next) {
+    const userId = req.user.id;
+    const { selected_ids } = req.body;
+
+    if (!Array.isArray(selected_ids)) {
+      return res.status(400).json({ message: '資料格式錯誤，請提供商品 ID 陣列' });
+    }
+
+    try {
+      const cartRepo = dataSource.getRepository('Cart');
+      const itemRepo = dataSource.getRepository('Cart_link_product');
+
+      const cart = await cartRepo.findOne({ where: { user_id: userId, deleted_at: null } });
+      if (!cart) return res.status(404).json({ message: '找不到購物車' });
+
+      // 全部先取消勾選
+      await itemRepo.update({ cart_id: cart.id }, { is_selected: false });
+
+      // 對指定商品設為 true
+      if (selected_ids.length > 0) {
+        await itemRepo.update(
+          {
+            cart_id: cart.id,
+            product_id: In(selected_ids),
+            deleted_at: IsNull(),
+          },
+          { is_selected: true }
+        );
+      }
+
+      return res.status(200).json({ message: '已更新勾選狀態' });
+    } catch (error) {
+      logger.error('更新購物車勾選狀態錯誤:', error);
+      next(error);
+    }
+  },
+
   // 更新購物車商品數量
   async updateCartItem(req, res, next) {
     try {
