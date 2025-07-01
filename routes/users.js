@@ -21,6 +21,7 @@ router.post('/membership/receiver', auth, handleErrorAsync(usersController.postR
 router.get('/membership/cart', auth, handleErrorAsync(usersController.getCart));
 router.post('/membership/cart', auth, handleErrorAsync(usersController.addToCart));
 router.patch('/membership/cart', auth, handleErrorAsync(usersController.updateCartItem));
+router.patch('/membership/cart/select', auth, handleErrorAsync(usersController.updateCartItemSelect));
 router.post('/membership/cart/delete', auth, handleErrorAsync(usersController.deleteCartItem));
 router.patch('/forget', limiter, handleErrorAsync(usersController.patchForget));
 router.patch('/reset-password', handleErrorAsync(usersController.patchResetPassword));
