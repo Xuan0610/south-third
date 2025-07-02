@@ -905,7 +905,7 @@ const usersController = {
       }
 
       let totalPrice = 0;
-      const orderItems = cart.Cart_link_product.map(item => {
+      const orderItems = cart.Cart_link_product.filter(item => item.is_selected).map(item => {
         const subtotal = item.quantity * item.price;
         totalPrice += subtotal;
         return {
