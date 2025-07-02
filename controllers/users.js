@@ -642,6 +642,35 @@ const usersController = {
     }
   },
 
+  // 更新儲存優惠劵至購物車
+  async updateCartDiscount(req, res, next) {
+    try {
+      const userId = req.user.id;
+      const { discount_id } = req.body;
+
+      if (!discount_id) {
+        return res.status(400).json({ message: '請提供有效的 discount_id' });
+      }
+
+      const cartRepo = dataSource.getRepository('Cart');
+      const discountRepo = dataSource.getRepository('Discount_method');
+
+      const cart = await cartRepo.findOne({ where: { user_id: userId, deleted_at: null } });
+      if (!cart) return res.status(404).json({ message: '找不到購物車' });
+
+      const discount = await discountRepo.findOne({ where: { id: discount_id, is_active: true } });
+      if (!discount) return res.status(400).json({ message: '無效或已失效的優惠券' });
+
+      cart.discount_id = discount_id;
+      await cartRepo.save(cart);
+
+      res.status(200).json({ message: '已套用優惠券' });
+    } catch (error) {
+      logger.error('更新購物車優惠券錯誤:', error);
+      next(error);
+    }
+  },
+
   // 更新購物車商品數量
   async updateCartItem(req, res, next) {
     try {
