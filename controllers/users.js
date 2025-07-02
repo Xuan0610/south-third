@@ -971,7 +971,9 @@ const usersController = {
       }
 
 
-      const grand_total = totalPrice + shipping_fee - discount_amount;
+      const subtotal = totalPrice - discount_amount;
+      const grand_total = subtotal + shipping_fee;
+
 
       const result = {
         orderItems,
