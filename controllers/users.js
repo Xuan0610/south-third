@@ -948,13 +948,16 @@ const usersController = {
       });
 
       let discount_amount = 0;
-      if (cart.Discount_method) {
+      const hasValidDiscount = cart.Discount_method && cart.discount_id;
+
+      if (hasValidDiscount) {
         if (cart.Discount_method.discount_price > 0) {
           discount_amount = cart.Discount_method.discount_price;
         } else if (cart.Discount_method.discount_percent < 1) {
           discount_amount = Math.round(totalPrice * (1 - cart.Discount_method.discount_percent));
         }
       }
+
 
       const grand_total = totalPrice + shipping_fee - discount_amount;
 
