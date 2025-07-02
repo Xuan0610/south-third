@@ -493,6 +493,7 @@ const usersController = {
           price: item.price,
           quantity: item.quantity,
           single_total_price,
+          is_selected: item.is_selected,
         };
       });
 
