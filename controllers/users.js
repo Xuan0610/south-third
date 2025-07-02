@@ -20,7 +20,7 @@ const generateJWT = require('../utils/generateJWT');
 const { sendResetEmail } = require('../utils/mailer');
 const { nanoid } = require('nanoid');
 const crypto = require('crypto');
-const { password } = require('../config/db');
+// const { password } = require('../config/db');
 
 const usersController = {
   async postSignup(req, res, next) {
@@ -728,7 +728,7 @@ const usersController = {
   },
 
   // 試算優惠 → 套用優惠券
-  async getDiscount(req, res, next) {
+  async getDiscount(req, res, _next) {
     try {
       const { discount_kol, selected_total } = req.body;
       const userId = req.user.id;
@@ -827,7 +827,7 @@ const usersController = {
   },
 
   // 使用優惠券 → 實際下訂單時，儲存使用紀錄
-  async postDiscountUsage(req, res, next) {
+  async postDiscountUsage(req, res, _next) {
     try {
       const userId = req.user.id;
       const { discount_id } = req.body;
