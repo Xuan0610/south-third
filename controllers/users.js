@@ -647,29 +647,41 @@ const usersController = {
     try {
       const userId = req.user.id;
       const { discount_id } = req.body;
-
-      if (!discount_id) {
-        return res.status(400).json({ message: '請提供有效的 discount_id' });
-      }
-
+  
       const cartRepo = dataSource.getRepository('Cart');
       const discountRepo = dataSource.getRepository('Discount_method');
-
-      const cart = await cartRepo.findOne({ where: { user_id: userId, deleted_at: null } });
-      if (!cart) return res.status(404).json({ message: '找不到購物車' });
-
-      const discount = await discountRepo.findOne({ where: { id: discount_id, is_active: true } });
-      if (!discount) return res.status(400).json({ message: '無效或已失效的優惠券' });
-
-      cart.discount_id = discount_id;
+  
+      const cart = await cartRepo.findOne({
+        where: { user_id: userId, deleted_at: null },
+      });
+  
+      if (!cart) {
+        return res.status(404).json({ message: '找不到購物車' });
+      }
+  
+      if (discount_id === null) {
+        cart.discount_id = null;
+        await cartRepo.save(cart);
+        return res.status(200).json({ message: '已移除優惠劵' });
+      }
+  
+      const discount = await discountRepo.findOne({
+        where: { id: discount_id, deleted_at: null },
+      });
+  
+      if (!discount) {
+        return res.status(400).json({ message: '無效的優惠劵 ID' });
+      }
+  
+      cart.discount_id = discount.id;
       await cartRepo.save(cart);
-
-      res.status(200).json({ message: '已套用優惠券' });
+  
+      return res.status(200).json({ message: '已套用優惠劵' });
     } catch (error) {
-      logger.error('更新購物車優惠券錯誤:', error);
+      logger.error('套用優惠劵時發生錯誤:', error);
       next(error);
     }
-  },
+  },  
 
   // 更新購物車商品數量
   async updateCartItem(req, res, next) {
