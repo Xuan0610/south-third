@@ -20,7 +20,7 @@ const generateJWT = require('../utils/generateJWT');
 const { sendResetEmail } = require('../utils/mailer');
 const { nanoid } = require('nanoid');
 const crypto = require('crypto');
-const { password } = require('../config/db');
+// const { password } = require('../config/db');
 
 const usersController = {
   async postSignup(req, res, next) {
@@ -493,6 +493,7 @@ const usersController = {
           price: item.price,
           quantity: item.quantity,
           single_total_price,
+          is_selected: item.is_selected,
         };
       });
 
@@ -581,6 +582,7 @@ const usersController = {
           deletedItem.deleted_at = null;
           deletedItem.quantity = quantity;
           deletedItem.price = product.price;
+          deletedItem.is_selected = true;
           await cartLinkProductRepository.save(deletedItem);
         } else {
           // 沒有曾刪除的紀錄，建立新資料
@@ -589,6 +591,7 @@ const usersController = {
             product_id,
             quantity,
             price: product.price,
+            is_selected: true,
           });
           await cartLinkProductRepository.save(newItem);
         }
@@ -600,6 +603,85 @@ const usersController = {
       next(error);
     }
   },
+
+  // 更新購物車商品勾選狀態
+  async updateCartItemSelect(req, res, next) {
+    const userId = req.user.id;
+    const { selected_ids } = req.body;
+
+    if (!Array.isArray(selected_ids)) {
+      return res.status(400).json({ message: '資料格式錯誤，請提供商品 ID 陣列' });
+    }
+
+    try {
+      const cartRepo = dataSource.getRepository('Cart');
+      const itemRepo = dataSource.getRepository('Cart_link_product');
+
+      const cart = await cartRepo.findOne({ where: { user_id: userId, deleted_at: null } });
+      if (!cart) return res.status(404).json({ message: '找不到購物車' });
+
+      // 全部先取消勾選
+      await itemRepo.update({ cart_id: cart.id }, { is_selected: false });
+
+      // 對指定商品設為 true
+      if (selected_ids.length > 0) {
+        await itemRepo.update(
+          {
+            cart_id: cart.id,
+            product_id: In(selected_ids),
+            deleted_at: IsNull(),
+          },
+          { is_selected: true }
+        );
+      }
+
+      return res.status(200).json({ message: '已更新勾選狀態' });
+    } catch (error) {
+      logger.error('更新購物車勾選狀態錯誤:', error);
+      next(error);
+    }
+  },
+
+  // 更新儲存優惠劵至購物車
+  async updateCartDiscount(req, res, next) {
+    try {
+      const userId = req.user.id;
+      const { discount_id } = req.body;
+  
+      const cartRepo = dataSource.getRepository('Cart');
+      const discountRepo = dataSource.getRepository('Discount_method');
+  
+      const cart = await cartRepo.findOne({
+        where: { user_id: userId, deleted_at: null },
+      });
+  
+      if (!cart) {
+        return res.status(404).json({ message: '找不到購物車' });
+      }
+  
+      if (discount_id === null) {
+        cart.discount_id = null;
+        await cartRepo.save(cart);
+        return res.status(200).json({ message: '已移除優惠劵' });
+      }
+  
+      const discount = await discountRepo.findOne({
+        where: { id: discount_id, deleted_at: null },
+      });
+  
+      if (!discount) {
+        return res.status(400).json({ message: '無效的優惠劵 ID' });
+      }
+  
+      cart.discount_id = discount.id;
+      await cartRepo.save(cart);
+  
+      return res.status(200).json({ message: '已套用優惠劵' });
+    } catch (error) {
+      logger.error('套用優惠劵時發生錯誤:', error);
+      next(error);
+    }
+  },  
 
   // 更新購物車商品數量
   async updateCartItem(req, res, next) {
@@ -687,7 +769,7 @@ const usersController = {
   },
 
   // 試算優惠 → 套用優惠券
-  async getDiscount(req, res, next) {
+  async getDiscount(req, res, _next) {
     try {
       const { discount_kol, selected_total } = req.body;
       const userId = req.user.id;
@@ -786,7 +868,7 @@ const usersController = {
   },
 
   // 使用優惠券 → 實際下訂單時，儲存使用紀錄
-  async postDiscountUsage(req, res, next) {
+  async postDiscountUsage(req, res, _next) {
     try {
       const userId = req.user.id;
       const { discount_id } = req.body;
@@ -865,7 +947,7 @@ const usersController = {
       }
 
       let totalPrice = 0;
-      const orderItems = cart.Cart_link_product.map(item => {
+      const orderItems = cart.Cart_link_product.filter(item => item.is_selected).map(item => {
         const subtotal = item.quantity * item.price;
         totalPrice += subtotal;
         return {
@@ -878,7 +960,9 @@ const usersController = {
       });
 
       let discount_amount = 0;
-      if (cart.Discount_method) {
+      const hasValidDiscount = cart.Discount_method && cart.discount_id;
+
+      if (hasValidDiscount) {
         if (cart.Discount_method.discount_price > 0) {
           discount_amount = cart.Discount_method.discount_price;
         } else if (cart.Discount_method.discount_percent < 1) {
@@ -886,7 +970,10 @@ const usersController = {
         }
       }
 
-      const grand_total = totalPrice + shipping_fee - discount_amount;
+
+      const subtotal = totalPrice - discount_amount;
+      const grand_total = subtotal + shipping_fee;
+
 
       const result = {
         orderItems,
