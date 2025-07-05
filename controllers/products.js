@@ -172,10 +172,11 @@ const productsController = {
         return acc;
       }, {});
 
-      // 轉換為陣列並排序，只取前四名
-      const topFourProducts = Object.values(productSales)
+      // 轉換為陣列並排序，預設只取前四名(首頁使用)，購物車調整參數 limit = 12
+      const limit = parseInt(req.query.limit) || 4;
+      const topProducts = Object.values(productSales)
         .sort((a, b) => b.total_quantity - a.total_quantity)
-        .slice(0, 12)
+        .slice(0, limit)
         .map(product => ({
           id: product.product_id,
           name: product.Product.name,
@@ -188,7 +189,7 @@ const productsController = {
 
       res.status(200).json({
         message: '成功',
-        data: topFourProducts,
+        data: topProducts,
       });
     } catch (error) {
       next(error);
