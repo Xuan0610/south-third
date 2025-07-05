@@ -647,41 +647,41 @@ const usersController = {
     try {
       const userId = req.user.id;
       const { discount_id } = req.body;
-  
+
       const cartRepo = dataSource.getRepository('Cart');
       const discountRepo = dataSource.getRepository('Discount_method');
-  
+
       const cart = await cartRepo.findOne({
         where: { user_id: userId, deleted_at: null },
       });
-  
+
       if (!cart) {
         return res.status(404).json({ message: '找不到購物車' });
       }
-  
+
       if (discount_id === null) {
         cart.discount_id = null;
         await cartRepo.save(cart);
         return res.status(200).json({ message: '已移除優惠劵' });
       }
-  
+
       const discount = await discountRepo.findOne({
         where: { id: discount_id, deleted_at: null },
       });
-  
+
       if (!discount) {
         return res.status(400).json({ message: '無效的優惠劵 ID' });
       }
-  
+
       cart.discount_id = discount.id;
       await cartRepo.save(cart);
-  
+
       return res.status(200).json({ message: '已套用優惠劵' });
     } catch (error) {
       logger.error('套用優惠劵時發生錯誤:', error);
       next(error);
     }
-  },  
+  },
 
   // 更新購物車商品數量
   async updateCartItem(req, res, next) {
@@ -970,10 +970,8 @@ const usersController = {
         }
       }
 
-
       const subtotal = totalPrice - discount_amount;
       const grand_total = subtotal + shipping_fee;
-
 
       const result = {
         orderItems,
@@ -1362,6 +1360,11 @@ const usersController = {
       }
 
       findOrder.payment_method_id = payment_method_id;
+      if (payment_method_id === 1) {
+        findOrder.is_paid = false;
+      } else {
+        findOrder.is_paid = true;
+      }
 
       const result = await orderRepo.save(findOrder);
 
@@ -1369,6 +1372,7 @@ const usersController = {
         message: '結帳成功',
         data: {
           display_id: result.display_id,
+          is_paid: result.is_paid,
         },
       });
     } catch (error) {
