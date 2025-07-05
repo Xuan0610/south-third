@@ -175,7 +175,7 @@ const productsController = {
       // 轉換為陣列並排序，只取前四名
       const topFourProducts = Object.values(productSales)
         .sort((a, b) => b.total_quantity - a.total_quantity)
-        .slice(0, 4)
+        .slice(0, 12)
         .map(product => ({
           id: product.product_id,
           name: product.Product.name,
