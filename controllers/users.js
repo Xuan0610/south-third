@@ -1505,7 +1505,7 @@ const usersController = {
           id: order_id,
           user_id: user_id,
         },
-        relations: ['Receiver'],
+        relations: ['Receiver', 'User'],
       });
 
       if (!order) {
@@ -1525,6 +1525,9 @@ const usersController = {
           name: order.Receiver.name,
           phone: order.Receiver.phone,
           address: `${order.Receiver.post_code} ${order.Receiver.address}`,
+        },
+        user: {
+          email: order.User.email,
         },
       };
 
