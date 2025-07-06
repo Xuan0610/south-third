@@ -1047,7 +1047,15 @@ const usersController = {
       }
 
       const productRepo = queryRunner.manager.getRepository('Product');
-      for (const item of cart.Cart_link_product) {
+      const shipping_fee = 80;
+      let products_total = 0;
+      const selectedItems = cart.Cart_link_product.filter(item => item.is_selected === true);
+
+      if (selectedItems.length === 0) {
+        throw new Error('請選擇要購買的商品');
+      }
+
+      for (const item of selectedItems) {
         const product = item.Product;
         if (product.stock < item.quantity) {
           throw new Error(
@@ -1057,9 +1065,7 @@ const usersController = {
         product.stock -= item.quantity;
       }
 
-      const shipping_fee = 80;
-      let products_total = 0;
-      cart.Cart_link_product.forEach(item => {
+      selectedItems.forEach(item => {
         products_total += item.price * item.quantity;
       });
 
@@ -1127,7 +1133,7 @@ const usersController = {
       await orderRepo.save(newOrder);
 
       const orderLinkProductRepo = queryRunner.manager.getRepository('Order_link_product');
-      const orderItems = cart.Cart_link_product.map(item =>
+      const orderItems = selectedItems.map(item =>
         orderLinkProductRepo.create({
           order_id: newOrder.id,
           product_id: item.product_id,
@@ -1137,13 +1143,13 @@ const usersController = {
       );
       await orderLinkProductRepo.save(orderItems);
 
-      const updatedProducts = cart.Cart_link_product.map(item => item.Product);
+      const updatedProducts = selectedItems.map(item => item.Product);
       await productRepo.save(updatedProducts);
 
-      const cartLinkProductRepo = queryRunner.manager.getRepository('Cart_link_product');
-      await cartLinkProductRepo.delete({ cart_id: cart.id });
-      cart.discount_id = null;
-      await cartRepo.save(cart);
+      // const cartLinkProductRepo = queryRunner.manager.getRepository('Cart_link_product');
+      // await cartLinkProductRepo.delete({ cart_id: cart.id });
+      // cart.discount_id = null;
+      // await cartRepo.save(cart);
 
       await queryRunner.commitTransaction();
 
