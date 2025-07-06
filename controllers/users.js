@@ -1367,9 +1367,9 @@ const usersController = {
 
       findOrder.payment_method_id = payment_method_id;
       if (payment_method_id === 1) {
-        findOrder.is_paid = false;
-      } else {
         findOrder.is_paid = true;
+      } else {
+        findOrder.is_paid = false;
       }
 
       const cartRepo = dataSource.getRepository('Cart');
