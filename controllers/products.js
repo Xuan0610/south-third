@@ -185,6 +185,7 @@ const productsController = {
           feature: product.Product.Product_detail.feature,
           description: product.Product.Product_detail.description,
           price: product.Product.price,
+          stock: product.Product.stock,
         }));
 
       res.status(200).json({
