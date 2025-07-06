@@ -1372,6 +1372,23 @@ const usersController = {
         findOrder.is_paid = true;
       }
 
+      const cartRepo = dataSource.getRepository('Cart');
+      const cartLinkProductRepo = dataSource.getRepository('Cart_link_product');
+      const cart = await cartRepo.findOne({
+        where: { user_id },
+        relations: ['Cart_link_product'],
+      });
+
+      if (cart && cart.Cart_link_product) {
+        const selectedItems = cart.Cart_link_product.filter(item => item.is_selected === true);
+        for (const item of selectedItems) {
+          await cartLinkProductRepo.delete({
+            cart_id: cart.id,
+            product_id: item.product_id,
+          });
+        }
+      }
+
       const result = await orderRepo.save(findOrder);
 
       res.status(200).json({
