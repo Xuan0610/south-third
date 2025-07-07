@@ -1268,6 +1268,24 @@ const usersController = {
       // 格式化日期為 YYYYMMDD
       const createdDay = order.created_at.toISOString().slice(0, 10).replace(/-/g, '');
 
+      // 計算折扣
+      const productTotal = order.Order_link_product.reduce(
+        (sum, item) => sum + item.price * item.quantity,
+        0
+      );
+      
+      let discount = 0;
+      
+      if (order.Discount_method) {
+        const { discount_price, discount_percent } = order.Discount_method;
+      
+        if (discount_price != null && discount_price > 0) {
+          discount = discount_price;
+        } else if (discount_percent != null && discount_percent < 1) {
+          discount = Math.round(productTotal * (1 - discount_percent));
+        }
+      }
+
       const orderDetail = {
         id: order.id,
         display_id: order.display_id,
@@ -1292,17 +1310,15 @@ const usersController = {
           quantity: item.quantity,
         })),
         summary: {
-          discount_kol: order.Discount_method?.kol_code || null,
+          discount_kol: order.Discount_method?.discount_kol || null,
           product_total: order.Order_link_product.reduce(
             (sum, item) => sum + item.price * item.quantity,
             0
           ),
           shipping_fee: order.shipping_fee,
           subtotal: order.total_price,
-          discount: order.discount_amount || 0,
-          grand_total:
-            order.final_price ??
-            order.total_price - (order.discount_amount || 0) + (order.shipping_fee || 0),
+          discount,
+          grand_total: order.total_price,
         },
         created_at: order.created_at.toISOString(),
       };
