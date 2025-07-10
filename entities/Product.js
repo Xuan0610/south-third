@@ -36,6 +36,12 @@ module.exports = new EntitySchema({
       length: 2048,
       nullable: false,
     },
+    image_urls: {
+      type: 'text',
+      array: true,
+      nullable: false,
+      default: () => 'ARRAY[]::text[]',
+    },
     is_enable: {
       type: 'boolean',
       nullable: false,

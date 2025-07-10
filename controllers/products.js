@@ -97,7 +97,7 @@ const productsController = {
         return;
       }
 
-      const { id, name, image_url, stock, price, Product_detail } = findProduct;
+      const { id, name, image_url, image_urls, stock, price, Product_detail } = findProduct;
       const {
         origin,
         feature,
@@ -116,6 +116,7 @@ const productsController = {
         name,
         origin,
         image_url,
+        image_urls,
         stock,
         feature,
         variety,
